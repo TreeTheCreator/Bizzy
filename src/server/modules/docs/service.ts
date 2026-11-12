@@ -36,11 +36,17 @@ export interface FileRow {
   created_at: string;
 }
 
-const docFields = z.object({
+// Rules without defaults, so partial updates leave unsent fields untouched.
+const docRules = z.object({
   title: z.string().trim().min(1, "is required").max(200),
-  content: z.string().max(500_000).default(""),
-  kind: z.enum(DOC_KINDS).default("doc"),
-  parentId: id.nullable().default(null),
+  content: z.string().max(500_000),
+  kind: z.enum(DOC_KINDS),
+  parentId: id.nullable(),
+});
+const docFields = docRules.extend({
+  content: docRules.shape.content.default(""),
+  kind: docRules.shape.kind.default("doc"),
+  parentId: docRules.shape.parentId.default(null),
 });
 export type DocInput = z.input<typeof docFields>;
 
@@ -113,7 +119,7 @@ export async function updateDoc(
   input: Partial<DocInput>,
 ): Promise<void> {
   await authorize(ctx, parse(id, workspaceId), "docs", "edit");
-  const data = parse(docFields.partial(), input);
+  const data = parse(docRules.partial(), input);
   parse(id, docId);
 
   if (data.parentId) {

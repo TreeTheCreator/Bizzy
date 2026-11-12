@@ -26,6 +26,27 @@ describe.skipIf(!dbTestsEnabled)("tasks", () => {
     expect((await listTasks(team.sales, team.workspaceId)).filter((t) => t.title === "Weekly report")).toHaveLength(2);
   });
 
+  it("a partial update changes only the fields that were sent", async () => {
+    const project = await createProject(team.owner, team.workspaceId, { name: "Keep me", description: "project notes" });
+    const id = await createTask(team.owner, team.workspaceId, {
+      title: "Full task", description: "keep this", priority: "high", projectId: project,
+      assigneeId: team.sales.userId, dueDate: "2026-12-01", recurrence: "monthly", status: "in_progress",
+    });
+    await updateTask(team.sales, team.workspaceId, id, { title: "Renamed" });
+    expect((await getTask(team.owner, team.workspaceId, id)).task).toMatchObject({
+      title: "Renamed", description: "keep this", priority: "high", project_id: project,
+      assignee_id: team.sales.userId, due_date: "2026-12-01", recurrence: "monthly", status: "in_progress",
+    });
+    const { updateProject, listProjects } = await import("@/server/modules/tasks/service");
+    await updateProject(team.owner, team.workspaceId, project, { archived: true });
+    expect((await listProjects(team.owner, team.workspaceId)).find((p) => p.id === project)).toMatchObject({ name: "Keep me", description: "project notes", archived: true });
+
+    const parent = await createDoc(team.owner, team.workspaceId, { title: "Parent" });
+    const doc = await createDoc(team.owner, team.workspaceId, { title: "Doc", content: "keep this too", kind: "sop", parentId: parent });
+    await updateDoc(team.owner, team.workspaceId, doc, { title: "Doc renamed" });
+    expect((await getDoc(team.owner, team.workspaceId, doc)).doc).toMatchObject({ title: "Doc renamed", content: "keep this too", kind: "sop", parent_id: parent });
+  });
+
   it("templates create one task per item, with due dates", async () => {
     const project = await createProject(team.owner, team.workspaceId, { name: "Onboarding" });
     const template = await createTemplate(team.owner, team.workspaceId, {

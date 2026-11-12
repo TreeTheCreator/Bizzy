@@ -59,22 +59,37 @@ export interface TaskTemplate {
 const TASK_COLUMNS =
   "id, workspace_id, project_id, title, description, status, priority, assignee_id, due_date, recurrence, created_by, created_at, updated_at, completed_at";
 
-const taskFields = z.object({
+// Field rules WITHOUT defaults: used as-is for partial updates, so a field the
+// caller did not send is left untouched. (A default inside a partial schema
+// would silently reset it.)
+const taskRules = z.object({
   title: z.string().trim().min(1, "is required").max(300),
-  description: z.string().max(20000).default(""),
-  status: z.enum(TASK_STATUSES).default("todo"),
-  priority: z.enum(TASK_PRIORITIES).default("normal"),
-  projectId: id.nullable().default(null),
-  assigneeId: id.nullable().default(null),
-  dueDate: isoDate.nullable().default(null),
-  recurrence: z.enum(RECURRENCES).default("none"),
+  description: z.string().max(20000),
+  status: z.enum(TASK_STATUSES),
+  priority: z.enum(TASK_PRIORITIES),
+  projectId: id.nullable(),
+  assigneeId: id.nullable(),
+  dueDate: isoDate.nullable(),
+  recurrence: z.enum(RECURRENCES),
+});
+const taskUpdate = taskRules.partial();
+// Creation fills in defaults for everything except the title.
+const taskFields = taskRules.extend({
+  description: taskRules.shape.description.default(""),
+  status: taskRules.shape.status.default("todo"),
+  priority: taskRules.shape.priority.default("normal"),
+  projectId: taskRules.shape.projectId.default(null),
+  assigneeId: taskRules.shape.assigneeId.default(null),
+  dueDate: taskRules.shape.dueDate.default(null),
+  recurrence: taskRules.shape.recurrence.default("none"),
 });
 export type TaskInput = z.input<typeof taskFields>;
 
-const projectFields = z.object({
+const projectRules = z.object({
   name: z.string().trim().min(1, "is required").max(120),
-  description: z.string().max(5000).default(""),
+  description: z.string().max(5000),
 });
+const projectFields = projectRules.extend({ description: projectRules.shape.description.default("") });
 
 // --- Projects ---------------------------------------------------------------
 
@@ -113,7 +128,7 @@ export async function updateProject(
   input: { name?: string; description?: string; archived?: boolean },
 ): Promise<void> {
   await authorize(ctx, parse(id, workspaceId), "tasks", "edit");
-  const data = parse(projectFields.partial().extend({ archived: z.boolean().optional() }), input);
+  const data = parse(projectRules.partial().extend({ archived: z.boolean().optional() }), input);
   const rows = unwrap<{ id: string }[]>(
     await ctx.db
       .from("projects")
@@ -190,7 +205,7 @@ export async function getTask(
   return { task, comments };
 }
 
-function toRow(data: Partial<z.infer<typeof taskFields>>) {
+function toRow(data: z.infer<typeof taskUpdate>) {
   const row: Record<string, unknown> = {};
   if (data.title !== undefined) row.title = data.title;
   if (data.description !== undefined) row.description = data.description;
@@ -248,7 +263,7 @@ export async function updateTask(
   input: Partial<TaskInput>,
 ): Promise<void> {
   await authorize(ctx, parse(id, workspaceId), "tasks", "edit");
-  const data = parse(taskFields.partial(), input);
+  const data = parse(taskUpdate, input);
   const before = unwrap<Task | null>(
     await ctx.db
       .from("tasks")
