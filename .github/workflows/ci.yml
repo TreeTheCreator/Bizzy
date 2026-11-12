@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+
+      # A throwaway Supabase stack (Postgres, Auth, Storage) with our migrations applied.
+      - name: Start local Supabase
+        run: npx supabase start
+      - name: Write local keys to .env.local
+        run: npm run db:env
+
+      # REQUIRE_DB_TESTS makes the run fail (instead of skip) if the database tests cannot start.
+      - name: Tests (authorization, tenant isolation, audit)
+        run: npm test
+        env:
+          REQUIRE_DB_TESTS: "1"
+
+      - name: Build
+        run: npx next build
