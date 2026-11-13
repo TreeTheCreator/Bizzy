@@ -8,7 +8,7 @@ Updated Nov 13, 2026, after the first runs against a real local Supabase stack.
 
 | Check | Status |
 | --- | --- |
-| Full test suite: 375 tests (130 unit, 245 against real Supabase Postgres, Auth and Storage) covering the access matrix, role granting, tenant isolation, audit, invites and files | **Run, all passing** |
+| Full test suite: 375 tests (129 unit, 246 against real Supabase Postgres, Auth and Storage) covering the access matrix, role granting, tenant isolation, audit, invites and files | **Run, all passing** |
 | The fresh-login rule against a real Supabase session (the `amr` token claim has the shape the database function expects) | **Confirmed** by the test suite |
 | Demo script walked in a browser with two test users: sign-up, workspace, invite, "No access yet", role creation and assignment, restricted Sales view, recurring task, doc and file upload, search, immediate revocation, audit log, notifications | **Done, working** |
 | GitHub Actions CI | **Not run yet** (nothing has been pushed) |
