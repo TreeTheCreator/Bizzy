@@ -1,18 +1,27 @@
-﻿# Phase 1 security self-review
+# Phase 1 security self-review
 
 Nov 12, 2026. Reviewed as an attacker would: try to grant yourself a role, reach another workspace, or read something your role excludes.
 
 ## What has and has not been verified
 
+Updated Nov 13, 2026, after the first runs against a real local Supabase stack.
+
 | Check | Status |
 | --- | --- |
-| Unit tests (129): `authorize()` for every level, every owner-only action, every channel; the service guard; recurrence | **Run, passing** |
-| SQL migrations load, and 50 rule checks (role granting, isolation, audit, invites, transfer, cascade delete) | **Run, passing**, but in an in-process Postgres (PGlite) with Supabase's `auth` and `storage` schemas stubbed. Good evidence for the SQL logic, not for Supabase itself |
-| Database test suite (245 tests in `tests/db`): access matrix, role granting, tenant isolation, audit, invites, files | **Written, not yet run.** Needs the local Supabase stack, which needs Docker, which is waiting on WSL2 and a reboot |
-| The web UI in a browser | **Not run.** It compiles and builds; nobody has clicked through it yet |
-| A real Vercel + Supabase deployment | **Not done** |
+| Full test suite: 375 tests (130 unit, 245 against real Supabase Postgres, Auth and Storage) covering the access matrix, role granting, tenant isolation, audit, invites and files | **Run, all passing** |
+| The fresh-login rule against a real Supabase session (the `amr` token claim has the shape the database function expects) | **Confirmed** by the test suite |
+| Demo script walked in a browser with two test users: sign-up, workspace, invite, "No access yet", role creation and assignment, restricted Sales view, recurring task, doc and file upload, search, immediate revocation, audit log, notifications | **Done, working** |
+| GitHub Actions CI | **Not run yet** (nothing has been pushed) |
+| A real Vercel + Supabase cloud deployment, including email confirmation and migrations on deploy | **Not done** |
 
-Phase 1 should not be called accepted until the database suite has run green and the demo script has been walked through.
+What the first real runs found:
+
+- **Partial updates wiped unsent fields.** The validation library applies defaults inside partial schemas, so "mark done" reset a task's recurrence and renaming a doc cleared its content. Caught by two failing tests; fixed by separating create rules (with defaults) from update rules (without); regression test added.
+- **Audit log showed role ids instead of names.** Now shows member and role names and what changed (for example "Sales → no role").
+
+Not verified in the browser walkthrough: the password re-confirmation prompt (every owner action was within 10 minutes of sign-in; the rule itself is covered by tests), ownership transfer, workspace deletion, guest expiry and templates. These are covered by the automated tests but nobody has clicked them.
+
+Known rough edge: signing in after being redirected from a deep link returns you to the workspace home, not the page you asked for.
 
 ## Attacks tried, by rule
 
@@ -66,7 +75,7 @@ Phase 1 should not be called accepted until the database suite has run green and
 | Display names are free text | A member could name themselves like the owner in comments | Show email next to name in sensitive places; revisit in Phase 3 |
 | Signed file links live 60 seconds; upload tokens about 2 hours | Someone whose access was just revoked can finish a download or upload in that window. An upload without a recorded row is invisible in the app | Acceptable; orphan cleanup job in Phase 2 |
 | Recorded file size and type come from the browser | Could be wrong; the real limit (25 MB) is enforced by storage | Read them back from storage in Phase 2 |
-| The fresh-login rule trusts the `amr` timestamp in Supabase's token | If Supabase refreshes that timestamp on token refresh, the rule is weaker than intended (never bypassed) | Confirm against the live stack when the database tests run |
+| The fresh-login rule trusts the `amr` timestamp in Supabase's token | A fresh sign-in is confirmed to count. Not yet checked: whether a silent token refresh also renews the timestamp, which would make the rule weaker than intended (never bypassed) | Check with a session older than one hour |
 | Sign-up is open | Strangers can create accounts and their own workspaces; they cannot see yours | Switch sign-ups off in Supabase once the team has joined (see DEPLOY.md) |
 | No Content-Security-Policy header yet | Defence in depth only; React escapes all output and stored content is rendered as plain text | Phase 4 hardening |
 | Editors can overwrite `created_by` on tasks through the raw API | Cosmetic attribution only | Lock with a trigger when reports depend on it |

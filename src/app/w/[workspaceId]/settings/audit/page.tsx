@@ -5,6 +5,7 @@ import { NoAccess } from "@/components/no-access";
 import { getWebCtx } from "@/server/db/web";
 import { listAudit } from "@/server/modules/audit/service";
 import { listMembers } from "@/server/modules/members/service";
+import { listRoles } from "@/server/modules/roles/service";
 import { SettingsNav } from "../subnav";
 
 export const metadata: Metadata = { title: "Audit log" };
@@ -21,11 +22,27 @@ export default async function AuditPage({
   const ctx = await getWebCtx();
   const loaded = await tryLoad(async () => {
     const entries = await listAudit(ctx, workspaceId, { beforeId: before, limit: 100 }); // owner only
-    const members = await listMembers(ctx, workspaceId);
-    return { entries, members };
+    const [members, roles] = await Promise.all([listMembers(ctx, workspaceId), listRoles(ctx, workspaceId)]);
+    return { entries, members, roles };
   });
   if (loaded.denied) return <NoAccess what="the audit log" />;
-  const { entries, members } = loaded.data;
+  const { entries, members, roles } = loaded.data;
+  // Targets are stored as ids; show the member or role name instead. A deleted
+  // role falls back to the name recorded in the entry itself.
+  const targetLabel = (entry: (typeof entries)[number]) =>
+    members.find((m) => m.user_id === entry.target)?.display_name ??
+    roles.find((r) => r.id === entry.target)?.name ??
+    (entry.event.startsWith("role.") && typeof entry.summary.name === "string" ? entry.summary.name : null) ??
+    (entry.event === "workspace.created" ? "" : (entry.target ?? ""));
+  const detail = (entry: (typeof entries)[number]) => {
+    const s = entry.summary;
+    if (entry.event.startsWith("role.permission") && s.page) return `${s.page}: ${s.level ?? "removed"}`;
+    if (entry.event === "role.assigned" || entry.event === "role.revoked") {
+      const name = (id: unknown) => roles.find((r) => r.id === id)?.name ?? (id ? "a deleted role" : "no role");
+      return `${name(s.from_role)} → ${name(s.to_role)}`;
+    }
+    return "";
+  };
   const who = (userId: string | null) =>
     members.find((m) => m.user_id === userId)?.display_name ?? (userId ? "Former member" : "System");
   const last = entries.at(-1);
@@ -56,8 +73,8 @@ export default async function AuditPage({
                 <td>{who(entry.actor_id)}</td>
                 <td className="font-mono text-xs">{entry.event}</td>
                 <td className="text-xs">
-                  {/* Targets that are user ids are shown as names. */}
-                  {members.find((m) => m.user_id === entry.target)?.display_name ?? entry.target ?? ""}
+                  {targetLabel(entry)}
+                  {detail(entry) && <span className="ml-2 text-muted">{detail(entry)}</span>}
                 </td>
                 <td>{entry.channel}</td>
                 <td className={entry.outcome === "ok" ? "" : "text-danger"}>{entry.outcome}</td>
