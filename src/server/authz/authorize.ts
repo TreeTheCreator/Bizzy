@@ -92,6 +92,14 @@ export async function authorize(
 ): Promise<Access> {
   const access = await getAccess(ctx, workspaceId);
 
+  // The MCP endpoint only accepts tokens issued to an OAuth client, because
+  // the database applies the connection's workspace list and the workspace's
+  // AI policy to exactly those tokens. Anything else on that channel fails closed.
+  if (ctx.channel === "mcp" && !access.oauthClient) {
+    await logDenied(ctx, workspaceId, page, action);
+    throw new PermissionDenied();
+  }
+
   if (isOwnerAction(action)) {
     const allowed = access.isOwner && ctx.channel === "web" && !access.oauthClient;
     if (!allowed) {

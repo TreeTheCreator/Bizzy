@@ -65,6 +65,24 @@ export async function listDocs(ctx: Ctx, workspaceId: string): Promise<DocSummar
   );
 }
 
+/** Docs whose title or content contains the query (titles only, no content). */
+export async function searchDocs(ctx: Ctx, workspaceId: string, query: string): Promise<DocSummary[]> {
+  await authorize(ctx, parse(id, workspaceId), "docs", "view");
+  // Strip characters that have meaning in PostgREST filters or LIKE patterns.
+  const term = String(query).replace(/[%_\\,()*"']/g, " ").trim().slice(0, 100);
+  if (term.length < 2) throw new Invalid("query: enter at least 2 characters");
+  const pattern = `%${term}%`;
+  return unwrap<DocSummary[]>(
+    await ctx.db
+      .from("docs")
+      .select("id, parent_id, kind, title, updated_at")
+      .eq("workspace_id", workspaceId)
+      .or(`title.ilike.${pattern},content.ilike.${pattern}`)
+      .order("updated_at", { ascending: false })
+      .limit(25),
+  );
+}
+
 export async function getDoc(
   ctx: Ctx,
   workspaceId: string,

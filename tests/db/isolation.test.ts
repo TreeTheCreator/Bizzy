@@ -93,7 +93,8 @@ describe.skipIf(!dbTestsEnabled)("tenant isolation", () => {
         [
           "accept_invite", "access_level", "app_pages", "can_manage_roles", "can_see_sensitive",
           "create_workspace", "has_any_access", "hash_invite_token", "invite_preview", "is_client_role",
-          "is_member", "is_oauth_client", "is_owner", "log_event", "log_login", "my_access", "my_role_id",
+          "is_member", "is_oauth_client", "is_owner", "log_event", "log_login", "mcp_cap", "mcp_connect",
+          "mcp_log_call", "mcp_revoke", "mcp_revoke_any", "my_access", "my_role_id",
           "recently_authenticated", "save_role", "storage_workspace", "transfer_ownership",
           "workspace_members", "workspace_people",
         ].sort(),

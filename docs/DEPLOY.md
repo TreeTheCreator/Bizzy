@@ -30,6 +30,8 @@ For **each** project, in the Supabase dashboard:
    - The public `anon` (publishable) key
    - The **Session pooler** connection string for Postgres, with your database password filled in. Use the pooler string, not the direct one: Vercel builds cannot reach Supabase's direct IPv6 address.
 
+4. **Authentication → OAuth Server** (needed for AI connections, Phase 2): switch it **on**, set the authorization path to `/oauth/consent`, and allow **dynamic client registration** (AI apps register themselves). Locally this is the `[auth.oauth_server]` block in `supabase/config.toml`. Not yet tried on a hosted project; the dashboard labels may differ.
+
 Free projects pause after about a week without activity; you resume them from the dashboard.
 
 ## 3. Create the Vercel project

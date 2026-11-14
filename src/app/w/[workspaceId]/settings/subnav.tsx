@@ -6,6 +6,7 @@ export function SettingsNav({ workspaceId, isOwner }: { workspaceId: string; isO
     { href: base, label: "General" },
     { href: `${base}/members`, label: "Members" },
     { href: `${base}/roles`, label: "Roles" },
+    { href: `${base}/ai`, label: "AI connections" },
     // The audit log is readable by the owner only.
     ...(isOwner ? [{ href: `${base}/audit`, label: "Audit log" }] : []),
   ];

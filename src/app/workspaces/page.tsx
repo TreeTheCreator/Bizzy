@@ -15,9 +15,12 @@ export default async function WorkspacesPage() {
     <main className="mx-auto w-full max-w-2xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="h1">Your workspaces</h1>
-        <form action={signOut}>
-          <button className="btn btn-sm" type="submit">Sign out</button>
-        </form>
+        <div className="flex gap-2">
+          <Link className="btn btn-sm" href="/connections">AI connections</Link>
+          <form action={signOut}>
+            <button className="btn btn-sm" type="submit">Sign out</button>
+          </form>
+        </div>
       </div>
 
       {workspaces.length === 0 ? (

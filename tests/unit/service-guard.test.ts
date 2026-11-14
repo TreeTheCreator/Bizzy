@@ -68,14 +68,18 @@ describe("every service function is authorized", () => {
     expect(functions.filter((f) => f.optedOut).map((f) => f.name).sort()).toEqual(
       [
         "acceptInvite",
+        "connectClient",
         "countUnread",
         "createWorkspace",
         "leaveWorkspace",
+        "listMyConnections",
         "listMyWorkspaces",
         "listNotifications",
+        "logMcpCall",
         "markAllRead",
         "previewInvite",
         "recordLogin",
+        "revokeMyConnection",
       ].sort(),
     );
   });
