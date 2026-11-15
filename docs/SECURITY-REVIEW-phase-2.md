@@ -11,7 +11,7 @@ Nov 15, 2026. Covers what Phase 2 added: AI connections (OAuth consent and the M
 | Phase 2 acceptance: a Sales member's AI client cannot list or call Finance tools; revocation applies on the next call | **Confirmed** by `tests/db/mcp.test.ts` |
 | The fresh-login rule survives a token refresh (carried over from Phase 1) | **Confirmed**, see below |
 | Connecting a real AI app end to end (register, consent screen, token, tool calls over HTTP) | **Not verified in this review.** The tests drive the MCP server and the connection functions directly, with simulated AI-client tokens |
-| Demo script walked in a browser | **Not done** for Phase 2 |
+| Demo script walked in a browser with two test users: Customers, deal to invoice, sent-invoice lock, spreadsheet import and download, AI policy, API key (read allowed, write refused, switched-off key rejected), webhook refusal, and a restricted member's view | **Done, working**, after one fix (below). Not walked: a real AI app, budgets, a real webhook delivery |
 | GitHub Actions CI | **Not run yet** (the branch has not been pushed) |
 | A real Vercel + Supabase deployment | **Not done.** Two points are open until then: Supabase's hosted OAuth Server with dynamic client registration, and whether the project accepts tokens signed with `SUPABASE_JWT_SECRET` (see DEPLOY.md) |
 
@@ -53,7 +53,7 @@ Per caller, per minute: 120 AI calls, 10 AI deletes, 120 API reads, 60 API write
 
 | Attack | Result | Stopped by |
 | --- | --- | --- |
-| Point a webhook at an internal address (loopback, private ranges, link-local, IPv6 equivalents) | Refused at delivery time | Address check after DNS lookup; redirects are not followed; https only, no credentials in the URL |
+| Point a webhook at an internal address (loopback, private ranges, link-local, IPv6 equivalents) | Obvious ones are refused when the webhook is added; all are refused at delivery time | Address check after DNS lookup; redirects are not followed; https only, no credentials in the URL |
 | Read a webhook's signing secret back | Not possible | Shown once; column not selectable |
 | Use a webhook to receive data from a page its creator cannot see | Event not sent | The creator's access is checked again at every event |
 | Forge a delivery | Receiver can detect it | `X-Bizzy-Signature`: HMAC-SHA256 over timestamp and exact body |
@@ -66,6 +66,11 @@ Failed deliveries are retried with growing delays and given up after 6 attempts.
 - Both pages follow the same levels as everything else (view, edit, manage); making an invoice from a deal needs access to both.
 - Invoice lines lock once the invoice is sent; totals always equal the lines.
 - CSV export prefixes cells that a spreadsheet would run as a formula. Exports are recorded in the audit log.
+
+## Found by the browser walkthrough and fixed
+
+1. **A saved role looked unsaved.** After the owner picked a role on the People page, the role was saved but the drop-down snapped back to its old value with no message, so the owner could believe a grant or a removal had failed. The same happened to every drop-down in a saved form. **Fix:** the shared form now remounts its fields after a successful save, so they show the saved values. Checked in the browser.
+2. **A webhook to `https://127.0.0.1/…` could be added.** It was never delivered (the delivery worker refused it), but nothing told the person. **Fix:** literal private addresses and local names are refused when the webhook is added. Test added.
 
 ## Carried over from Phase 1, now closed
 

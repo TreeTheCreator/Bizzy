@@ -413,6 +413,9 @@ describe.skipIf(!dbTestsEnabled || !process.env.SUPABASE_JWT_SECRET)("phase 2", 
       await expectDenied(createWebhook(sales, ws, { url: "https://example.com/h", events: ["deal.won"] }));
       await expectCode(createWebhook(guest, ws, { url: "https://example.com/h", events: ["invoice.paid"] }), "invalid");
       await expectCode(createWebhook(guest, ws, { url: "http://example.com/h", events: ["deal.won"] }), "invalid");
+      for (const url of ["https://127.0.0.1/h", "https://localhost/h", "https://10.0.0.5/h", "https://[::1]/h", "https://printer.local/h"]) {
+        await expectCode(createWebhook(guest, ws, { url, events: ["deal.won"] }), "invalid");
+      }
       await expectCode(createWebhook(guest, ws, { url: "https://example.com/h", events: [] }), "invalid");
       const hook = await createWebhook(guest, ws, { url: "https://example.com/h", events: ["deal.created"] });
 

@@ -28,6 +28,15 @@ export function ActionForm({
     lastSubmission.current = formData;
     return action(prev, formData);
   }, {});
+  // After a successful save the browser resets the form, and a drop-down then
+  // snaps back to the choice it had when the page loaded, even though the new
+  // one was saved. Remounting the fields makes them show the saved values.
+  const [seenState, setSeenState] = useState(state);
+  const [epoch, setEpoch] = useState(0);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state.ok) setEpoch(epoch + 1);
+  }
   const [password, setPassword] = useState("");
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -55,7 +64,7 @@ export function ActionForm({
 
   return (
     <form action={dispatch} className={className}>
-      <fieldset disabled={pending} className="contents">
+      <fieldset key={epoch} disabled={pending} className="contents">
         {children}
       </fieldset>
       {state.error && (

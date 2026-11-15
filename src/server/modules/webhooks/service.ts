@@ -1,8 +1,10 @@
+import { isIP } from "node:net";
 import { z } from "zod";
 import { authorize } from "@/server/authz/authorize";
 import type { Ctx } from "@/server/context";
 import { NotFound, unwrap } from "@/server/errors";
 import { id, parse } from "@/server/validate";
+import { isPrivateAddress } from "@/server/webhooks/deliver";
 
 /** Events a webhook can subscribe to. Must match public.webhook_event_page() in the database. */
 export const WEBHOOK_EVENTS = [
@@ -48,7 +50,15 @@ const webhookUrl = z
     } catch {
       return false;
     }
-  }, "must be an https:// address");
+  }, "must be an https:// address")
+  // Catch the obvious mistakes when the webhook is added. The delivery worker
+  // still checks every address after looking it up, which is the real guard.
+  .refine((value) => {
+    if (!URL.canParse(value)) return true; // already reported by the check above
+    const host = new URL(value).hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    if (host === "localhost" || /\.(localhost|local|internal)$/.test(host)) return false;
+    return isIP(host) === 0 || !isPrivateAddress(host);
+  }, "must be a public address, not one on this computer or a private network");
 
 /** The workspace's webhooks with their most recent deliveries. Needs Settings manage. */
 export async function listWebhooks(
