@@ -2,12 +2,14 @@
 
 Run several businesses from one place. Each business is a **workspace**; the workspace owner decides, page by page, what every member can see and do.
 
-Status: **Phase 1 (Foundation)**. Accounts, workspaces and switcher, invites, owner-only role management, page-level permissions, the built-in Full Access role, guest roles with expiry, audit log, Tasks, Docs with file storage, notifications and search.
+Status: **Phase 2 (AI connections and business core)**, not yet deployed. Phase 2 adds AI app connections (OAuth consent and an MCP endpoint), the owner's AI policy, Customers, Money, a REST API with keys, rate limits, webhooks and CSV import/export. Phase 1: accounts, workspaces and switcher, invites, owner-only role management, page-level permissions, the built-in Full Access role, guest roles with expiry, audit log, Tasks, Docs with file storage, notifications and search.
 
 - Plan and decisions: [docs/PLAN.md](docs/PLAN.md)
 - Deploying to Vercel + Supabase: [docs/DEPLOY.md](docs/DEPLOY.md)
 - Phase 1 demo script: [docs/DEMO-phase-1.md](docs/DEMO-phase-1.md)
 - Phase 1 security self-review: [docs/SECURITY-REVIEW-phase-1.md](docs/SECURITY-REVIEW-phase-1.md)
+- Phase 2 demo script: [docs/DEMO-phase-2.md](docs/DEMO-phase-2.md)
+- Phase 2 security self-review: [docs/SECURITY-REVIEW-phase-2.md](docs/SECURITY-REVIEW-phase-2.md)
 
 ## Run it locally
 
@@ -38,7 +40,7 @@ There is one authorization layer and everything goes through it.
 3. **Entry points are thin.** Pages and server actions only call service functions. The API and MCP server (Phase 2) will call the same ones.
 4. **The owner is not a role.** Ownership is `workspaces.owner_id`. Only the owner can create, edit, delete or assign roles, only from the web app, and only within 10 minutes of typing their password. Three independent checks enforce this: `authorize()`, the RLS policies, and database triggers.
 
-Queries always run as the signed-in user (or, for the REST API, as the member who created the API key). The Supabase service-role key is used in exactly one place: the webhook delivery worker (`src/server/webhooks/deliver.ts`), which only claims queued deliveries and records their results. A test fails if any other file touches it.
+Queries always run as the signed-in user (or, for the REST API, as the member who created the API key). The Supabase service-role key is used by two background workers only: webhook delivery (`src/server/webhooks/deliver.ts`), which claims queued deliveries and records their results, and orphaned-file cleanup (`src/server/files/cleanup.ts`), which removes stored files that no record points to. A test fails if any other file touches it.
 
 ## Layout
 

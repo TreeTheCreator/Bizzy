@@ -51,12 +51,12 @@ Three more variables switch on Phase 2 features. All three are **secrets**: mark
 | Variable | Switches on | Where to find it |
 | --- | --- | --- |
 | `SUPABASE_JWT_SECRET` | The REST API (`/api/v1`, API keys). The server uses it to sign a two-minute database token for the member an API key belongs to. | Supabase → Project Settings → JWT Keys → legacy JWT secret |
-| `SUPABASE_SERVICE_ROLE_KEY` | Webhook delivery. Used only by the delivery worker. | Supabase → Project Settings → API keys → `service_role` |
-| `CRON_SECRET` | The daily webhook retry sweep (`vercel.json`). Any long random string; Vercel sends it to the cron route. | You make it up |
+| `SUPABASE_SERVICE_ROLE_KEY` | Webhook delivery and the daily cleanup of orphaned files. Used only by those two workers. | Supabase → Project Settings → API keys → `service_role` |
+| `CRON_SECRET` | The two daily jobs in `vercel.json`: the webhook retry sweep and the orphaned-file cleanup. Any long random string; Vercel sends it to the cron routes. | You make it up |
 
 Treat `SUPABASE_JWT_SECRET` with the same care as the service-role key: anyone holding it can sign a token for any user. Not yet tried on a hosted project: if your project has moved to Supabase's newer asymmetric signing keys and no longer accepts tokens signed with the legacy secret, the API will answer 401 and needs a shared-secret (HS256) signing key added in the same dashboard page.
 
-Webhooks are sent right after the request that caused them. The cron job is only a retry sweep and runs once a day, which is the most Vercel's Hobby plan allows; on a paid plan you can shorten the schedule in `vercel.json`.
+Webhooks are sent right after the request that caused them. The webhook cron job is only a retry sweep and runs once a day, which is the most Vercel's Hobby plan allows; on a paid plan you can shorten the schedule in `vercel.json`.
 
 3. Deploy. During the build, `scripts/migrate.mjs` applies any new database migrations to that environment's database, then Next.js builds. A production build refuses to run if `SUPABASE_DB_URL` is missing, so code can never go live ahead of its schema.
 

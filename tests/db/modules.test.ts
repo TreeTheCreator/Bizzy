@@ -3,7 +3,8 @@ import { confirmUpload, createDoc, createUpload, deleteDoc, deleteFile, getDoc, 
 import { countUnread, listNotifications, markAllRead } from "@/server/modules/notifications/service";
 import { addComment, applyTemplate, createProject, createTask, createTemplate, deleteComment, deleteProject, getTask, listTasks, updateTask } from "@/server/modules/tasks/service";
 import { deleteWorkspace, getWorkspace } from "@/server/modules/workspaces/service";
-import { type Team, cleanup, createTeam, expectCode, expectDenied } from "../helpers";
+import { sweepOrphanFiles } from "@/server/files/cleanup";
+import { type Team, cleanup, createTeam, expectCode, expectDenied, pgClient } from "../helpers";
 import { dbTestsEnabled } from "../setup";
 
 describe.skipIf(!dbTestsEnabled)("tasks", () => {
@@ -150,10 +151,14 @@ describe.skipIf(!dbTestsEnabled)("docs and files", () => {
     expect(upload.path.startsWith(`${team.workspaceId}/`)).toBe(true);
     await expectCode(confirmUpload(team.writer, team.workspaceId, { ...request, fileId: upload.fileId }), "invalid");
 
-    const sent = await team.writer.db.storage.from("workspace-files").uploadToSignedUrl(upload.path, upload.token, new Blob(["hello bizzy"]), { contentType: "text/plain" });
+    const sent = await team.writer.db.storage.from("workspace-files").uploadToSignedUrl(upload.path, upload.token, new Blob(["hello bizzy"], { type: "text/plain" }), { contentType: "text/plain" });
     expect(sent.error).toBeNull();
-    const fileId = await confirmUpload(team.writer, team.workspaceId, { ...request, fileId: upload.fileId });
-    expect((await getDoc(team.guest, team.workspaceId, docId)).files.map((f) => f.name)).toEqual(["notes.txt"]);
+    // The browser lies about size and type; the recorded values come from storage.
+    const fileId = await confirmUpload(team.writer, team.workspaceId, { ...request, sizeBytes: 999, mimeType: "image/png", fileId: upload.fileId });
+    const recorded = (await getDoc(team.guest, team.workspaceId, docId)).files;
+    expect(recorded.map((f) => f.name)).toEqual(["notes.txt"]);
+    expect(recorded[0].size_bytes).toBe(11);
+    expect(recorded[0].mime_type).toContain("text/plain");
 
     // A viewer can download; the link really serves the bytes.
     const url = await getDownloadUrl(team.guest, team.workspaceId, fileId);
@@ -165,6 +170,48 @@ describe.skipIf(!dbTestsEnabled)("docs and files", () => {
     await expectDenied(deleteFile(team.guest, team.workspaceId, fileId));
     await deleteFile(team.writer, team.workspaceId, fileId);
     expect((await fetch(url)).ok).toBe(false);
+  });
+
+  it("a file row cannot be recorded for an object that does not exist", async () => {
+    const path = `${team.workspaceId}/${crypto.randomUUID()}/ghost.txt`;
+    const { error } = await team.writer.db
+      .from("files")
+      .insert({ workspace_id: team.workspaceId, name: "ghost.txt", storage_path: path, size_bytes: 5, uploaded_by: team.writer.userId });
+    expect(error).not.toBeNull();
+  });
+
+  it("the cleanup sweep removes old objects with no file row, and nothing else", async () => {
+    const bucket = team.writer.db.storage.from("workspace-files");
+    const send = async (name: string, confirm: boolean) => {
+      const request = { docId: null, name, sizeBytes: 4 };
+      const upload = await createUpload(team.writer, team.workspaceId, request);
+      const sent = await bucket.uploadToSignedUrl(upload.path, upload.token, new Blob(["data"]));
+      expect(sent.error).toBeNull();
+      if (confirm) await confirmUpload(team.writer, team.workspaceId, { ...request, fileId: upload.fileId });
+      return upload;
+    };
+    const exists = async (upload: { fileId: string }) =>
+      ((await bucket.list(`${team.workspaceId}/${upload.fileId}`)).data ?? []).length === 1;
+    const [abandoned, recent, kept] = await Promise.all([
+      send("abandoned.txt", false),
+      send("recent.txt", false),
+      send("kept.txt", true),
+    ]);
+
+    // Make two of them look two days old; "recent" is an upload still in progress.
+    const sql = await pgClient();
+    await sql.query(
+      "update storage.objects set created_at = now() - interval '2 days' where bucket_id = 'workspace-files' and name = any($1)",
+      [[abandoned.path, kept.path]],
+    );
+    // Members cannot call the orphan listing themselves.
+    expect((await team.owner.db.rpc("file_orphans")).error).not.toBeNull();
+    await sql.end();
+
+    expect(await sweepOrphanFiles()).toBeGreaterThanOrEqual(1);
+    expect(await exists(abandoned)).toBe(false);
+    expect(await exists(recent)).toBe(true);
+    expect(await exists(kept)).toBe(true);
   });
 
   it("deleting a workspace removes all of its data", async () => {

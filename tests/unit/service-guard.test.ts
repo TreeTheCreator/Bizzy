@@ -73,7 +73,7 @@ describe("every service function is authorized", () => {
     });
   }
 
-  it("only the webhook delivery worker may use the service-role client", () => {
+  it("only the background workers may use the service-role client", () => {
     const users = sourceFiles(join(process.cwd(), "src"))
       .filter((file) => /SUPABASE_SERVICE_ROLE_KEY|db\/admin["']/.test(readFileSync(file, "utf8")))
       .map((file) => file.split(/[\\/]src[\\/]/)[1].replace(/\\/g, "/"))
@@ -82,6 +82,7 @@ describe("every service function is authorized", () => {
       // Reads the variable only to show a "not delivering" notice; makes no client.
       "app/w/[workspaceId]/settings/webhooks/page.tsx",
       "server/db/admin.ts",
+      "server/files/cleanup.ts",
       "server/webhooks/deliver.ts",
     ]);
   });
