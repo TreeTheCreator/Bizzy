@@ -11,6 +11,7 @@ import { getAccess } from "@/server/authz/authorize";
 import { atLeast } from "@/server/authz/pages";
 import type { Ctx } from "@/server/context";
 import { AppError } from "@/server/errors";
+import { withinRateLimit } from "@/server/modules/limits/service";
 import { logMcpCall } from "@/server/modules/mcp/service";
 import { listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { TOOLS, type Tool } from "./tools";
@@ -91,6 +92,12 @@ async function callTool(ctx: Ctx, params: Record<string, unknown>): Promise<unkn
     content: [{ type: "text", text: JSON.stringify(value) }],
     isError,
   });
+
+  // Deleting has its own, much smaller allowance.
+  if (!(await withinRateLimit(ctx, tool.destructive ? "mcp.destructive" : "mcp"))) {
+    if (workspaceId) await logMcpCall(ctx, workspaceId, tool.name, { ...summarize(rawArgs), code: "rate_limited" }, "denied");
+    return text({ error: "rate_limited", message: "Too many calls. Wait a minute and try again." }, true);
+  }
 
   const parsed = tool.input.safeParse(rawArgs);
   if (!parsed.success) {

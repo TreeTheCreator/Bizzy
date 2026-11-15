@@ -46,7 +46,17 @@ Free projects pause after about a week without activity; you resume them from th
 | `SUPABASE_DB_URL` | `bizzy-prod` pooler string | `bizzy-preview` pooler string |
 | `NEXT_PUBLIC_APP_URL` | your production URL | *(leave unset)* |
 
-Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to Vercel. The app does not use it.
+Three more variables switch on Phase 2 features. All three are **secrets**: mark them "Sensitive" in Vercel, never prefix them with `NEXT_PUBLIC_`, and use each project's own values per environment. Without them the app still runs; the feature they power stays off and its Settings page says so.
+
+| Variable | Switches on | Where to find it |
+| --- | --- | --- |
+| `SUPABASE_JWT_SECRET` | The REST API (`/api/v1`, API keys). The server uses it to sign a two-minute database token for the member an API key belongs to. | Supabase → Project Settings → JWT Keys → legacy JWT secret |
+| `SUPABASE_SERVICE_ROLE_KEY` | Webhook delivery. Used only by the delivery worker. | Supabase → Project Settings → API keys → `service_role` |
+| `CRON_SECRET` | The daily webhook retry sweep (`vercel.json`). Any long random string; Vercel sends it to the cron route. | You make it up |
+
+Treat `SUPABASE_JWT_SECRET` with the same care as the service-role key: anyone holding it can sign a token for any user. Not yet tried on a hosted project: if your project has moved to Supabase's newer asymmetric signing keys and no longer accepts tokens signed with the legacy secret, the API will answer 401 and needs a shared-secret (HS256) signing key added in the same dashboard page.
+
+Webhooks are sent right after the request that caused them. The cron job is only a retry sweep and runs once a day, which is the most Vercel's Hobby plan allows; on a paid plan you can shorten the schedule in `vercel.json`.
 
 3. Deploy. During the build, `scripts/migrate.mjs` applies any new database migrations to that environment's database, then Next.js builds. A production build refuses to run if `SUPABASE_DB_URL` is missing, so code can never go live ahead of its schema.
 

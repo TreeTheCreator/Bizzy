@@ -125,6 +125,9 @@ async function expectToolDenied(ctx: Ctx, name: string, args: Record<string, unk
 }
 
 const VIEW_TOOLS = ["get_task", "list_projects", "list_tasks", "read_doc", "search_docs"];
+const CRM_FINANCE_VIEW_TOOLS = [
+  "get_cash_flow", "get_deal", "get_invoice", "list_deals", "list_expenses", "list_invoices", "search_contacts",
+];
 const BASE_TOOLS = ["get_workspace_summary", "list_workspaces"];
 
 describe.skipIf(!dbTestsEnabled)("AI connections (MCP)", () => {
@@ -208,6 +211,42 @@ describe.skipIf(!dbTestsEnabled)("AI connections (MCP)", () => {
       const log = await listAudit(team.owner, ws, { event: "authz.denied" });
       const mine = log.filter((e) => e.actor_id === team.sales.userId && e.channel === "mcp");
       expect(mine.map((e) => e.target)).toEqual(expect.arrayContaining(["docs:edit", "tasks:manage", "docs:manage"]));
+    });
+
+    // Phase 2 acceptance: a Sales member's AI client cannot list or call Finance tools.
+    it("hides Finance and CRM from a member whose role lacks them, and refuses forced calls", async () => {
+      const { TOOLS } = await import("@/server/mcp/tools");
+      const gated = TOOLS.filter((t) => t.page === "finance" || t.page === "crm").map((t) => t.name);
+      expect(gated.length).toBeGreaterThanOrEqual(14);
+      const listed = await toolNames(sales.ctx);
+      for (const name of gated) expect(listed, name).not.toContain(name);
+      expect(await toolNames(owner.ctx)).toEqual(expect.arrayContaining(gated));
+
+      await expectToolDenied(sales.ctx, "list_invoices", { workspace_id: ws });
+      await expectToolDenied(sales.ctx, "get_cash_flow", { workspace_id: ws });
+      await expectToolDenied(sales.ctx, "create_expense", { workspace_id: ws, amount: 5 });
+      await expectToolDenied(sales.ctx, "list_deals", { workspace_id: ws });
+      const log = await listAudit(team.owner, ws, { event: "authz.denied" });
+      const mine = log.filter((e) => e.actor_id === team.sales.userId && e.channel === "mcp");
+      expect(mine.map((e) => e.target)).toEqual(expect.arrayContaining(["finance:view", "finance:edit", "crm:view"]));
+      // The database refuses too, without our app in the way.
+      expect((await sales.raw.from("invoices").select("id").eq("workspace_id", ws)).data).toEqual([]);
+      expect((await sales.raw.from("expenses").insert({ workspace_id: ws, amount: 1, created_by: team.sales.userId })).error).not.toBeNull();
+    });
+
+    it("lets the owner's AI run a deal through to an invoice", async () => {
+      const deal = await call(owner.ctx, "create_deal", { workspace_id: ws, title: "AI deal", amount: 1200 });
+      expect(deal.isError).toBe(false);
+      const board = await call(owner.ctx, "list_deals", { workspace_id: ws });
+      const won = (board.data.stages as { id: string; kind: string }[]).find((s) => s.kind === "won")!;
+      await call(owner.ctx, "move_deal_stage", { workspace_id: ws, deal_id: deal.data.deal_id, stage_id: won.id });
+      const invoice = await call(owner.ctx, "create_invoice", { workspace_id: ws, deal_id: deal.data.deal_id });
+      expect(invoice.isError).toBe(false);
+      const unconfirmed = await call(owner.ctx, "send_invoice", { workspace_id: ws, invoice_id: invoice.data.invoice_id });
+      expect(unconfirmed.data.error).toBe("invalid");
+      await call(owner.ctx, "send_invoice", { workspace_id: ws, invoice_id: invoice.data.invoice_id, confirm: true });
+      const flow = await call(owner.ctx, "get_cash_flow", { workspace_id: ws });
+      expect((flow.data.summary as { unpaid: number }).unpaid).toBe(1200);
     });
 
     it("gives a member with no role, or no access to a page, nothing", async () => {
@@ -311,7 +350,7 @@ describe.skipIf(!dbTestsEnabled)("AI connections (MCP)", () => {
       expect(await toolNames(ai.ctx)).toContain("delete_doc");
 
       await setMcpPolicy(team.owner, ws, { policy: "read_only" });
-      expect(await toolNames(ai.ctx)).toEqual([...BASE_TOOLS, ...VIEW_TOOLS].sort());
+      expect(await toolNames(ai.ctx)).toEqual([...BASE_TOOLS, ...VIEW_TOOLS, ...CRM_FINANCE_VIEW_TOOLS].sort());
       expect((await call(ai.ctx, "list_tasks", { workspace_id: ws })).isError).toBe(false);
       await expectToolDenied(ai.ctx, "create_task", { workspace_id: ws, title: "x" });
       await expectToolDenied(ai.ctx, "update_doc", { workspace_id: ws, doc_id: doc, title: "x" });

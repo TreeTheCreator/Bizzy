@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { tryLoad } from "@/app/_lib/load";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmButton } from "@/components/modal";
 import { NoAccess } from "@/components/no-access";
+import { BackLink } from "@/components/ui";
+import { formatDate } from "@/lib/format";
 import { authorize } from "@/server/authz/authorize";
 import { atLeast } from "@/server/authz/pages";
 import { getWebCtx } from "@/server/db/web";
 import { DOC_KINDS, getDoc, listDocs } from "@/server/modules/docs/service";
 import { deleteDocAction, deleteFileAction, updateDocAction } from "../actions";
+import { KIND_LABELS } from "../kinds";
 import { FileUpload } from "../upload";
 
 export const metadata: Metadata = { title: "Doc" };
-
-const KIND_LABELS: Record<(typeof DOC_KINDS)[number], string> = { doc: "Doc", wiki: "Wiki page", sop: "SOP" };
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -45,26 +47,18 @@ export default async function DocPage({
 
   return (
     <div className="max-w-3xl">
-      <p className="mb-3 text-sm">
-        <Link className="text-accent underline" href={base}>← Docs</Link>
-        {parent && (
-          <>
-            {" / "}
-            <Link className="text-accent underline" href={`${base}/${parent.id}`}>{parent.title}</Link>
-          </>
-        )}
-      </p>
+      <BackLink href={parent ? `${base}/${parent.id}` : base}>{parent ? `Back to ${parent.title}` : "Back to docs"}</BackLink>
 
       {editing ? (
         <section className="card mb-6">
-          <ActionForm action={updateDocAction.bind(null, workspaceId, docId)} className="space-y-3">
+          <ActionForm action={updateDocAction.bind(null, workspaceId, docId)} className="space-y-4">
             <div>
               <label className="label" htmlFor="doc-title">Title</label>
               <input className="input" id="doc-title" name="title" defaultValue={doc.title} required maxLength={200} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="label" htmlFor="doc-kind">Type</label>
+                <label className="label" htmlFor="doc-kind">What kind of doc?</label>
                 <select className="input" id="doc-kind" name="kind" defaultValue={doc.kind}>
                   {DOC_KINDS.map((kind) => (
                     <option key={kind} value={kind}>{KIND_LABELS[kind]}</option>
@@ -72,9 +66,9 @@ export default async function DocPage({
                 </select>
               </div>
               <div>
-                <label className="label" htmlFor="doc-parent">Inside</label>
+                <label className="label" htmlFor="doc-parent">Keep it inside</label>
                 <select className="input" id="doc-parent" name="parentId" defaultValue={doc.parent_id ?? ""}>
-                  <option value="">Top level</option>
+                  <option value="">Nothing (top of the list)</option>
                   {docs.filter((d) => d.id !== doc.id).map((d) => (
                     <option key={d.id} value={d.id}>{d.title}</option>
                   ))}
@@ -82,12 +76,12 @@ export default async function DocPage({
               </div>
             </div>
             <div>
-              <label className="label" htmlFor="doc-content">Content</label>
-              <textarea className="input min-h-96 font-mono" id="doc-content" name="content" defaultValue={doc.content} />
+              <label className="label" htmlFor="doc-content">Text</label>
+              <textarea className="input min-h-96 leading-7" id="doc-content" name="content" defaultValue={doc.content} />
             </div>
             <div className="flex gap-2">
               <button className="btn btn-primary" type="submit">Save</button>
-              <Link className="btn" href={`${base}/${docId}`}>Cancel</Link>
+              <Link className="btn" href={`${base}/${docId}`}>Stop editing</Link>
             </div>
           </ActionForm>
         </section>
@@ -97,30 +91,37 @@ export default async function DocPage({
             <div>
               <h1 className="h1">{doc.title}</h1>
               <p className="muted">
-                {KIND_LABELS[doc.kind]} · updated {doc.updated_at.slice(0, 10)}
+                {KIND_LABELS[doc.kind]} · last changed {formatDate(doc.updated_at)}
               </p>
             </div>
-            {canEdit && <Link className="btn btn-sm" href={`${base}/${docId}?edit=1`}>Edit</Link>}
+            {canEdit && <Link className="btn" href={`${base}/${docId}?edit=1`}>Edit</Link>}
           </div>
           {/* Content is rendered as plain text: stored content is data, never markup. */}
-          <div className="whitespace-pre-wrap text-sm leading-6">{doc.content || "This doc is empty."}</div>
+          <div className="whitespace-pre-wrap leading-7">{doc.content || "Nothing has been written here yet."}</div>
         </article>
       )}
 
       <section className="card mb-6">
         <h2 className="h2 mb-3">Files</h2>
-        {files.length === 0 && <p className="muted mb-3">No files attached.</p>}
-        <ul className="mb-3 space-y-2 text-sm">
+        {files.length === 0 && <p className="muted mb-3">No files have been added.</p>}
+        <ul className="mb-3">
           {files.map((file) => (
-            <li key={file.id} className="flex flex-wrap items-center justify-between gap-2">
-              <span>
-                <a className="text-accent underline" href={`/api/files/${workspaceId}/${file.id}`}>{file.name}</a>
+            <li key={file.id} className="row">
+              <span className="min-w-0 flex-1">
+                <a className="link" href={`/api/files/${workspaceId}/${file.id}`}>{file.name}</a>
                 <span className="ml-2 text-muted">{formatBytes(file.size_bytes)}</span>
               </span>
               {canManage && (
                 <ActionForm action={deleteFileAction.bind(null, workspaceId)}>
                   <input type="hidden" name="fileId" value={file.id} />
-                  <button className="btn btn-sm btn-danger" type="submit">Delete</button>
+                  <ConfirmButton
+                    className="btn btn-sm btn-danger"
+                    title={`Delete the file "${file.name}"?`}
+                    message="The file is removed for good. You can't undo this."
+                    confirmLabel="Delete file"
+                  >
+                    Delete
+                  </ConfirmButton>
                 </ActionForm>
               )}
             </li>
@@ -131,8 +132,13 @@ export default async function DocPage({
 
       {canManage && !editing && (
         <ActionForm action={deleteDocAction.bind(null, workspaceId, docId)}>
-          <button className="btn btn-danger" type="submit">Delete doc</button>
-          <span className="muted ml-2">Attached files are deleted too. Pages inside it move to the top level.</span>
+          <ConfirmButton
+            title="Delete this doc?"
+            message={`"${doc.title}" and its files will be removed for good. Docs kept inside it move to the top of the list. You can't undo this.`}
+            confirmLabel="Delete doc"
+          >
+            Delete doc
+          </ConfirmButton>
         </ActionForm>
       )}
     </div>

@@ -37,3 +37,17 @@ export async function recordLogin(ctx: Ctx): Promise<void> {
   const { error } = await ctx.db.rpc("log_login");
   if (error) console.error("[audit] could not log login", error.code);
 }
+
+/** Record that the caller exported data (a CSV download). Never throws. */
+// authz: user-scoped (log_event() records only the caller's own action)
+export async function recordExport(ctx: Ctx, workspaceId: string, what: string, rows: number): Promise<void> {
+  const { error } = await ctx.db.rpc("log_event", {
+    p_workspace: workspaceId,
+    p_event: "data.export",
+    p_target: what,
+    p_summary: { rows },
+    p_outcome: "ok",
+    p_channel: ctx.channel,
+  });
+  if (error) console.error("[audit] could not log export", error.code);
+}

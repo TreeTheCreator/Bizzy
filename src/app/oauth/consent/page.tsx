@@ -10,8 +10,8 @@ export const metadata: Metadata = { title: "Connect an AI app" };
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
-      <p className="mb-6 text-2xl font-semibold">Bizzy</p>
-      <div className="card">{children}</div>
+      <p className="mb-6 text-3xl font-semibold">Bizzy</p>
+      <div className="card p-6">{children}</div>
     </main>
   );
 }
@@ -70,9 +70,9 @@ export default async function ConsentPage({
         Only allow this if you started it yourself.
       </p>
       <p className="muted mb-4">
-        The app acts as you, limited by your role in each workspace and by that workspace&apos;s AI setting. It
-        can never manage members, roles or settings. You can disconnect it at any time under{" "}
-        <Link className="text-accent underline" href="/connections">AI connections</Link>.
+        The app can do what you can do, and no more. It can never change people, roles or settings. You can
+        disconnect it at any time under{" "}
+        <Link className="link" href="/connections">Your AI apps</Link>.
       </p>
       {workspaces.length === 0 ? (
         <p className="muted">You are not a member of any workspace yet, so there is nothing to connect.</p>

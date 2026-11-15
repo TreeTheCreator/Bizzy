@@ -38,7 +38,7 @@ There is one authorization layer and everything goes through it.
 3. **Entry points are thin.** Pages and server actions only call service functions. The API and MCP server (Phase 2) will call the same ones.
 4. **The owner is not a role.** Ownership is `workspaces.owner_id`. Only the owner can create, edit, delete or assign roles, only from the web app, and only within 10 minutes of typing their password. Three independent checks enforce this: `authorize()`, the RLS policies, and database triggers.
 
-Queries always run as the signed-in user. The app never uses the Supabase service-role key; only the test suite does, to create test users.
+Queries always run as the signed-in user (or, for the REST API, as the member who created the API key). The Supabase service-role key is used in exactly one place: the webhook delivery worker (`src/server/webhooks/deliver.ts`), which only claims queued deliveries and records their results. A test fails if any other file touches it.
 
 ## Layout
 

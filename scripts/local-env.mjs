@@ -26,6 +26,7 @@ const values = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: pick("ANON_KEY", "PUBLISHABLE_KEY"),
   SUPABASE_SERVICE_ROLE_KEY: pick("SERVICE_ROLE_KEY", "SECRET_KEY"),
   SUPABASE_DB_URL: pick("DB_URL"),
+  SUPABASE_JWT_SECRET: pick("JWT_SECRET"),
   NEXT_PUBLIC_APP_URL: "http://localhost:3000",
 };
 const missing = Object.entries(values).filter(([, v]) => !v).map(([k]) => k);

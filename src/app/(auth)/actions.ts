@@ -45,7 +45,11 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
         emailRedirectTo: `${await appUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
-    if (error) throw new Invalid(error.message);
+    if (error) {
+      // A network failure reads "fetch failed", which means nothing to most people.
+      const offline = /fetch failed|network/i.test(error.message);
+      throw new Invalid(offline ? "We couldn't reach the server. Try again in a moment." : error.message);
+    }
     // With email confirmation switched on there is no session yet.
     if (!data.session) {
       return { ok: true, data: { message: "Check your email to confirm your account, then sign in." } };

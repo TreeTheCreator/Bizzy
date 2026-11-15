@@ -1,3 +1,4 @@
+import { humanize } from "@/lib/format";
 import type { Person } from "@/server/modules/members/service";
 import { type Project, type Task, RECURRENCES, TASK_PRIORITIES, TASK_STATUSES } from "@/server/modules/tasks/service";
 
@@ -5,6 +6,13 @@ export const STATUS_LABELS: Record<(typeof TASK_STATUSES)[number], string> = {
   todo: "To do",
   in_progress: "In progress",
   done: "Done",
+};
+
+const REPEAT_LABELS: Record<(typeof RECURRENCES)[number], string> = {
+  none: "Does not repeat",
+  daily: "Every day",
+  weekly: "Every week",
+  monthly: "Every month",
 };
 
 /** The shared field set for creating and editing a task. */
@@ -23,18 +31,31 @@ export function TaskFields({
 }) {
   const key = task?.id ?? "new";
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div>
-        <label className="label" htmlFor={`title-${key}`}>Title</label>
+        <label className="label" htmlFor={`title-${key}`}>What needs doing?</label>
         <input className="input" id={`title-${key}`} name="title" defaultValue={task?.title ?? ""} required maxLength={300} />
       </div>
       {!compact && (
         <div>
-          <label className="label" htmlFor={`description-${key}`}>Description</label>
-          <textarea className="input min-h-28" id={`description-${key}`} name="description" defaultValue={task?.description ?? ""} />
+          <label className="label" htmlFor={`description-${key}`}>Details (optional)</label>
+          <textarea className="input min-h-24" id={`description-${key}`} name="description" defaultValue={task?.description ?? ""} />
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="label" htmlFor={`assignee-${key}`}>Who will do it?</label>
+          <select className="input" id={`assignee-${key}`} name="assigneeId" defaultValue={task?.assignee_id ?? ""}>
+            <option value="">Nobody yet</option>
+            {people.map((p) => (
+              <option key={p.user_id} value={p.user_id}>{p.display_name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor={`due-${key}`}>Due date</label>
+          <input className="input" type="date" id={`due-${key}`} name="dueDate" defaultValue={task?.due_date ?? ""} />
+        </div>
         <div>
           <label className="label" htmlFor={`status-${key}`}>Status</label>
           <select className="input" id={`status-${key}`} name="status" defaultValue={task?.status ?? "todo"}>
@@ -47,16 +68,7 @@ export function TaskFields({
           <label className="label" htmlFor={`priority-${key}`}>Priority</label>
           <select className="input" id={`priority-${key}`} name="priority" defaultValue={task?.priority ?? "normal"}>
             {TASK_PRIORITIES.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label" htmlFor={`assignee-${key}`}>Assignee</label>
-          <select className="input" id={`assignee-${key}`} name="assigneeId" defaultValue={task?.assignee_id ?? ""}>
-            <option value="">Unassigned</option>
-            {people.map((p) => (
-              <option key={p.user_id} value={p.user_id}>{p.display_name}</option>
+              <option key={p} value={p}>{humanize(p)}</option>
             ))}
           </select>
         </div>
@@ -72,14 +84,10 @@ export function TaskFields({
           </select>
         </div>
         <div>
-          <label className="label" htmlFor={`due-${key}`}>Due date</label>
-          <input className="input" type="date" id={`due-${key}`} name="dueDate" defaultValue={task?.due_date ?? ""} />
-        </div>
-        <div>
           <label className="label" htmlFor={`recurrence-${key}`}>Repeats</label>
           <select className="input" id={`recurrence-${key}`} name="recurrence" defaultValue={task?.recurrence ?? "none"}>
             {RECURRENCES.map((r) => (
-              <option key={r} value={r}>{r === "none" ? "Does not repeat" : r}</option>
+              <option key={r} value={r}>{REPEAT_LABELS[r]}</option>
             ))}
           </select>
         </div>

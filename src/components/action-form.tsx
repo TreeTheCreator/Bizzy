@@ -1,8 +1,9 @@
 "use client";
 
-import { type ReactNode, startTransition, useActionState, useRef, useState } from "react";
+import { type ReactNode, startTransition, useActionState, useContext, useEffect, useRef, useState } from "react";
 import type { ActionState } from "@/app/_lib/action";
 import { confirmPassword } from "@/app/(auth)/actions";
+import { ModalCloseContext } from "./modal";
 
 type FormAction = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -31,6 +32,13 @@ export function ActionForm({
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
+  // Inside a pop-up: close it once the form has saved, unless the result
+  // carries something the person still has to read (a link or a secret).
+  const closeModal = useContext(ModalCloseContext);
+  useEffect(() => {
+    if (state.ok && !state.data?.link && !state.data?.secret) closeModal?.();
+  }, [state, closeModal]);
+
   async function confirmAndRetry() {
     setConfirming(true);
     setConfirmError(null);
@@ -51,25 +59,31 @@ export function ActionForm({
         {children}
       </fieldset>
       {state.error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 w-full text-[15px] text-danger">
           {state.error}
         </p>
       )}
       {state.ok && (successMessage || state.data?.message) && (
-        <p role="status" className="mt-2 text-sm text-ok">
+        <p role="status" className="mt-2 w-full text-[15px] text-ok">
           {state.data?.message ?? successMessage}
         </p>
       )}
       {state.ok && state.data?.link && (
-        <div className="mt-2 text-sm">
+        <div className="mt-2 w-full text-[15px]">
           <p className="text-ok">Invite created. Copy this link and send it to them. It is shown only once.</p>
-          <input readOnly className="input mt-1 font-mono text-xs" value={state.data.link} onFocus={(e) => e.target.select()} />
+          <input readOnly className="input mt-1 font-mono text-sm" value={state.data.link} onFocus={(e) => e.target.select()} />
+        </div>
+      )}
+      {state.ok && state.data?.secret && (
+        <div className="mt-2 w-full text-[15px]">
+          <p className="text-ok">{state.data.secretNote ?? "Copy this now. It is shown only once."}</p>
+          <input readOnly className="input mt-1 font-mono text-sm" value={state.data.secret} aria-label="Secret" onFocus={(e) => e.target.select()} />
         </div>
       )}
       {state.reauth && (
-        <div className="mt-3 rounded-md border border-border p-3">
-          <p className="text-sm font-medium">Confirm your password to continue</p>
-          <p className="muted">Owner-only changes need a fresh confirmation.</p>
+        <div className="mt-3 w-full rounded-lg border border-border p-4 text-left">
+          <p className="font-medium">Enter your password to continue</p>
+          <p className="muted">This is a big change, so we check it is really you.</p>
           <div className="mt-2 flex gap-2">
             <input
               type="password"
@@ -89,7 +103,7 @@ export function ActionForm({
               {confirming ? "Checking…" : "Confirm"}
             </button>
           </div>
-          {confirmError && <p className="mt-1 text-sm text-danger">{confirmError}</p>}
+          {confirmError && <p className="mt-1 text-[15px] text-danger">{confirmError}</p>}
         </div>
       )}
     </form>

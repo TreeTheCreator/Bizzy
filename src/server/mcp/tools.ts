@@ -12,6 +12,27 @@ import { z } from "zod";
 import type { Page, PageAction } from "@/server/authz/pages";
 import type { Ctx } from "@/server/context";
 import {
+  createContact,
+  createDeal,
+  deleteDeal,
+  getDeal,
+  listContacts,
+  listDeals,
+  listStages,
+  updateDeal,
+} from "@/server/modules/crm/service";
+import {
+  INVOICE_STATUSES,
+  createExpense,
+  createInvoice,
+  deleteInvoice,
+  getCashFlow,
+  getInvoice,
+  listExpenses,
+  listInvoices,
+  setInvoiceStatus,
+} from "@/server/modules/finance/service";
+import {
   DOC_KINDS,
   createDoc,
   deleteDoc,
@@ -54,6 +75,7 @@ const workspace_id = id.describe("Workspace id, from list_workspaces.");
 const confirm = z
   .literal(true, "must be true to confirm the deletion")
   .describe("Must be true. Deletion is permanent.");
+const amount = z.number().min(0).describe("Money amount, at most 2 decimal places.");
 
 const taskFields = {
   title: z.string().describe("Short title."),
@@ -277,6 +299,228 @@ export const TOOLS: readonly Tool[] = [
     input: z.object({ workspace_id, doc_id: id, confirm }),
     run: async (ctx, args) => {
       await deleteDoc(ctx, args.workspace_id, args.doc_id);
+      return { deleted: true };
+    },
+  }),
+
+  // --- CRM ------------------------------------------------------------------
+  tool({
+    name: "search_contacts",
+    description: "Find contacts by name or email. With no query, lists them all (at most 5000).",
+    page: "crm",
+    level: "view",
+    input: z.object({ workspace_id, query: z.string().optional(), company_id: id.optional() }),
+    run: (ctx, args) => listContacts(ctx, args.workspace_id, { query: args.query, companyId: args.company_id }),
+  }),
+  tool({
+    name: "list_deals",
+    description: "List deals and the stages of the deal board. Each deal's stage_id refers to a stage.",
+    page: "crm",
+    level: "view",
+    input: z.object({
+      workspace_id,
+      stage_id: id.optional(),
+      open_only: z.boolean().optional().describe("Hide deals that are won or lost."),
+    }),
+    run: async (ctx, args) => ({
+      stages: await listStages(ctx, args.workspace_id),
+      deals: await listDeals(ctx, args.workspace_id, { stageId: args.stage_id, openOnly: args.open_only }),
+    }),
+  }),
+  tool({
+    name: "get_deal",
+    description: "Get one deal.",
+    page: "crm",
+    level: "view",
+    input: z.object({ workspace_id, deal_id: id }),
+    run: (ctx, args) => getDeal(ctx, args.workspace_id, args.deal_id),
+  }),
+  tool({
+    name: "create_contact",
+    description: "Add a contact.",
+    page: "crm",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      name: z.string(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      title: z.string().optional().describe("Job title."),
+      company_id: id.nullable().optional(),
+    }),
+    run: async (ctx, args) => ({
+      contact_id: await createContact(ctx, args.workspace_id, {
+        name: args.name,
+        ...(args.email !== undefined && { email: args.email }),
+        ...(args.phone !== undefined && { phone: args.phone }),
+        ...(args.title !== undefined && { title: args.title }),
+        ...(args.company_id !== undefined && { companyId: args.company_id }),
+      }),
+    }),
+  }),
+  tool({
+    name: "create_deal",
+    description: "Create a deal. Without stage_id it starts in the first stage of the board.",
+    page: "crm",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      title: z.string(),
+      amount: amount.optional(),
+      stage_id: id.optional().describe("From list_deals."),
+      company_id: id.nullable().optional(),
+      contact_id: id.nullable().optional(),
+      expected_close: isoDate.nullable().optional(),
+      notes: z.string().optional(),
+    }),
+    run: async (ctx, args) => ({
+      deal_id: await createDeal(ctx, args.workspace_id, {
+        title: args.title,
+        ...(args.amount !== undefined && { amount: args.amount }),
+        ...(args.stage_id !== undefined && { stageId: args.stage_id }),
+        ...(args.company_id !== undefined && { companyId: args.company_id }),
+        ...(args.contact_id !== undefined && { contactId: args.contact_id }),
+        ...(args.expected_close !== undefined && { expectedClose: args.expected_close }),
+        ...(args.notes !== undefined && { notes: args.notes }),
+      }),
+    }),
+  }),
+  tool({
+    name: "move_deal_stage",
+    description: "Move a deal to another stage. A won or lost stage closes the deal.",
+    page: "crm",
+    level: "edit",
+    input: z.object({ workspace_id, deal_id: id, stage_id: id.describe("From list_deals.") }),
+    run: async (ctx, args) => {
+      await updateDeal(ctx, args.workspace_id, args.deal_id, { stageId: args.stage_id });
+      return { updated: true };
+    },
+  }),
+  tool({
+    name: "delete_deal",
+    description: "Permanently delete a deal. Cannot be undone.",
+    page: "crm",
+    level: "manage",
+    destructive: true,
+    input: z.object({ workspace_id, deal_id: id, confirm }),
+    run: async (ctx, args) => {
+      await deleteDeal(ctx, args.workspace_id, args.deal_id);
+      return { deleted: true };
+    },
+  }),
+
+  // --- Finance --------------------------------------------------------------
+  tool({
+    name: "list_invoices",
+    description: "List invoices, newest first, optionally by status.",
+    page: "finance",
+    level: "view",
+    input: z.object({ workspace_id, status: z.enum(INVOICE_STATUSES).optional() }),
+    run: (ctx, args) => listInvoices(ctx, args.workspace_id, { status: args.status }),
+  }),
+  tool({
+    name: "get_invoice",
+    description: "Get one invoice with its lines.",
+    page: "finance",
+    level: "view",
+    input: z.object({ workspace_id, invoice_id: id }),
+    run: (ctx, args) => getInvoice(ctx, args.workspace_id, args.invoice_id),
+  }),
+  tool({
+    name: "list_expenses",
+    description: "List expenses, newest first, optionally between two dates.",
+    page: "finance",
+    level: "view",
+    input: z.object({ workspace_id, from: isoDate.optional(), to: isoDate.optional() }),
+    run: (ctx, args) => listExpenses(ctx, args.workspace_id, { from: args.from, to: args.to }),
+  }),
+  tool({
+    name: "get_cash_flow",
+    description:
+      "Money in (paid invoices) and out (expenses) per month, plus today's unpaid and overdue totals.",
+    page: "finance",
+    level: "view",
+    input: z.object({ workspace_id, months: z.number().int().min(1).max(24).optional().describe("Default 6.") }),
+    run: (ctx, args) => getCashFlow(ctx, args.workspace_id, { months: args.months }),
+  }),
+  tool({
+    name: "create_invoice",
+    description:
+      "Create a draft invoice. With deal_id (needs CRM access) the customer and a first line come from the deal.",
+    page: "finance",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      customer_name: z.string().optional().describe("Required unless deal_id is given."),
+      deal_id: id.optional(),
+      due_date: isoDate.nullable().optional(),
+      notes: z.string().optional(),
+      lines: z
+        .array(z.object({ description: z.string(), quantity: z.number().positive().optional(), unit_price: amount }))
+        .optional(),
+    }),
+    run: async (ctx, args) => ({
+      invoice_id: await createInvoice(ctx, args.workspace_id, {
+        ...(args.customer_name !== undefined && { customerName: args.customer_name }),
+        ...(args.deal_id !== undefined && { dealId: args.deal_id }),
+        ...(args.due_date !== undefined && { dueDate: args.due_date }),
+        ...(args.notes !== undefined && { notes: args.notes }),
+        lines: (args.lines ?? []).map((l) => ({
+          description: l.description,
+          unitPrice: l.unit_price,
+          ...(l.quantity !== undefined && { quantity: l.quantity }),
+        })),
+      }),
+    }),
+  }),
+  tool({
+    name: "create_expense",
+    description: "Record an expense.",
+    page: "finance",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      amount,
+      spent_on: isoDate.optional().describe("Default today."),
+      category: z.string().optional(),
+      vendor: z.string().optional().describe("Who was paid."),
+      notes: z.string().optional(),
+    }),
+    run: async (ctx, args) => ({
+      expense_id: await createExpense(ctx, args.workspace_id, {
+        amount: args.amount,
+        ...(args.spent_on !== undefined && { spentOn: args.spent_on }),
+        ...(args.category !== undefined && { category: args.category }),
+        ...(args.vendor !== undefined && { vendor: args.vendor }),
+        ...(args.notes !== undefined && { notes: args.notes }),
+      }),
+    }),
+  }),
+  tool({
+    name: "send_invoice",
+    description:
+      "Mark a draft invoice as sent. This records that it was sent and locks its lines; Bizzy does not email the customer.",
+    page: "finance",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      invoice_id: id,
+      confirm: z.literal(true, "must be true to confirm").describe("Must be true."),
+    }),
+    run: async (ctx, args) => {
+      await setInvoiceStatus(ctx, args.workspace_id, args.invoice_id, { status: "sent" });
+      return { sent: true };
+    },
+  }),
+  tool({
+    name: "delete_invoice",
+    description: "Permanently delete an invoice and its lines. Cannot be undone.",
+    page: "finance",
+    level: "manage",
+    destructive: true,
+    input: z.object({ workspace_id, invoice_id: id, confirm }),
+    run: async (ctx, args) => {
+      await deleteInvoice(ctx, args.workspace_id, args.invoice_id);
       return { deleted: true };
     },
   }),

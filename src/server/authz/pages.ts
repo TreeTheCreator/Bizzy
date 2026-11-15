@@ -23,8 +23,8 @@ export const PAGE_LABELS: Record<Page, string> = {
   dashboard: "Dashboard",
   tasks: "Tasks",
   docs: "Docs",
-  crm: "CRM",
-  finance: "Finance",
+  crm: "Customers",
+  finance: "Money",
   hr: "HR",
   ops: "Operations",
   marketing: "Marketing",
@@ -33,7 +33,7 @@ export const PAGE_LABELS: Record<Page, string> = {
 };
 
 /** Pages that have a working UI in the current phase. */
-export const LIVE_PAGES: readonly Page[] = ["tasks", "docs", "settings"];
+export const LIVE_PAGES: readonly Page[] = ["tasks", "docs", "crm", "finance", "settings"];
 
 export const LEVELS = ["none", "view", "edit", "manage"] as const;
 export type Level = (typeof LEVELS)[number];

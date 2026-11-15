@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import { getMcpCtx } from "@/server/db/token";
 import { appUrl } from "@/server/db/web";
 import { handleMessage } from "@/server/mcp/server";
+import { drainWebhooks } from "@/server/webhooks/deliver";
 
 /**
  * The MCP endpoint (stateless streamable HTTP): one JSON-RPC message per POST,
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  after(() => drainWebhooks()); // a tool call may have queued webhook events
   const response = await handleMessage(ctx, message);
   if (response === null) return new NextResponse(null, { status: 202, headers: HEADERS });
   return NextResponse.json(response, { headers: HEADERS });

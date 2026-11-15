@@ -29,7 +29,8 @@ describe.skipIf(!dbTestsEnabled)("tenant isolation", () => {
     const sql = await pgClient();
     const { rows } = await sql.query(
       `select c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r' and c.relname not in ('profiles', 'workspaces') order by 1`,
+       where n.nspname = 'public' and c.relkind = 'r'
+         and c.relname not in ('profiles', 'workspaces', 'rate_limits') order by 1`,
     );
     tenantTables = rows.map((r) => r.name as string);
     await sql.end();
@@ -49,9 +50,16 @@ describe.skipIf(!dbTestsEnabled)("tenant isolation", () => {
 
     it("every table except profiles and workspaces has a NOT NULL workspace_id", async () => {
       const sql = await pgClient();
+      // rate_limits is the one other exception: request counters keyed by user,
+      // holding no workspace data. It must stay unreachable for every client role.
+      const counters = await sql.query(
+        `select r from unnest(array['anon', 'authenticated']) as r, unnest(array['select', 'insert', 'update', 'delete']) as p
+         where has_table_privilege(r, 'public.rate_limits', p)`,
+      );
+      expect(counters.rows).toEqual([]);
       const { rows } = await sql.query(
         `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
-         where n.nspname = 'public' and c.relkind = 'r' and c.relname not in ('profiles', 'workspaces')
+         where n.nspname = 'public' and c.relkind = 'r' and c.relname not in ('profiles', 'workspaces', 'rate_limits')
            and not exists (select 1 from pg_attribute att where att.attrelid = c.oid
                            and att.attname = 'workspace_id' and att.attnotnull and not att.attisdropped)`,
       );
@@ -91,7 +99,9 @@ describe.skipIf(!dbTestsEnabled)("tenant isolation", () => {
       await sql.end();
       expect(rows.map((r) => r.proname)).toEqual(
         [
-          "accept_invite", "access_level", "app_pages", "can_manage_roles", "can_see_sensitive",
+          "accept_invite", "access_level", "api_key_create", "api_key_id", "api_key_resolve", "api_key_revoke",
+          "app_pages", "can_manage_roles", "can_see_sensitive", "rate_limit_hit", "webhook_create",
+          "webhook_event_page",
           "create_workspace", "has_any_access", "hash_invite_token", "invite_preview", "is_client_role",
           "is_member", "is_oauth_client", "is_owner", "log_event", "log_login", "mcp_cap", "mcp_connect",
           "mcp_log_call", "mcp_revoke", "mcp_revoke_any", "my_access", "my_role_id",
@@ -142,7 +152,9 @@ describe.skipIf(!dbTestsEnabled)("tenant isolation", () => {
   describe("workspace A's owner against workspace B, through the raw database API", () => {
     it("reads zero rows from every tenant table", async () => {
       for (const table of tenantTables) {
-        const { data, error } = await a.owner.db.from(table).select("*").eq("workspace_id", b.workspaceId);
+        // Tables that hide a secret column from clients cannot be read with "*".
+        const columns = ["api_keys", "webhooks", "webhook_deliveries"].includes(table) ? "id, workspace_id" : "*";
+        const { data, error } = await a.owner.db.from(table).select(columns).eq("workspace_id", b.workspaceId);
         expect(error, table).toBeNull();
         expect(data, table).toEqual([]);
       }

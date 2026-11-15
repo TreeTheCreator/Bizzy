@@ -12,9 +12,9 @@ interface WorkspaceOption {
 }
 
 const POLICY_NOTE: Record<WorkspaceOption["policy"], string> = {
-  off: "AI access is switched off by the owner",
-  read_only: "Read only",
-  read_write: "Can read and make changes",
+  off: "The owner has switched AI apps off here",
+  read_only: "Can look only",
+  read_write: "Can look and make changes",
 };
 
 /** Sends the browser back to the AI client once an action returns its URL. */
@@ -24,7 +24,7 @@ export function GoTo({ url }: { url: string }) {
   }, [url]);
   return (
     <p className="muted">
-      Returning to your AI app… <a className="text-accent underline" href={url}>Continue</a> if nothing happens.
+      Returning to your AI app… <a className="link" href={url}>Continue</a> if nothing happens.
     </p>
   );
 }
@@ -48,9 +48,9 @@ export function ConsentForm({
   return (
     <form action={approveDispatch}>
       <fieldset disabled={busy} className="space-y-2">
-        <legend className="label">Workspaces it may reach</legend>
+        <legend className="label">Which businesses may it reach?</legend>
         {workspaces.map((w) => (
-          <label key={w.id} className="flex items-start gap-2 rounded-md border border-border p-2">
+          <label key={w.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 has-checked:border-accent has-checked:bg-accent-bg">
             <input type="checkbox" name="workspace" value={w.id} className="mt-1" />
             <span>
               <span className="font-medium">{w.name}</span>
@@ -60,16 +60,16 @@ export function ConsentForm({
         ))}
       </fieldset>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 text-[15px] text-danger">
           {error}
         </p>
       )}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-5 flex gap-2">
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {approving ? "Connecting…" : "Allow"}
         </button>
         <button className="btn" type="submit" formAction={denyDispatch} disabled={busy}>
-          Deny
+          Don&apos;t allow
         </button>
       </div>
     </form>

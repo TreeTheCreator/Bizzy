@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmButton } from "@/components/modal";
+import { BackLink } from "@/components/ui";
+import { formatDate } from "@/lib/format";
 import { appUrl, getWebCtx } from "@/server/db/web";
 import { type Connection, listMyConnections } from "@/server/modules/mcp/service";
 import { listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { revokeMyConnectionAction } from "./actions";
 
-export const metadata: Metadata = { title: "AI connections" };
+export const metadata: Metadata = { title: "Your AI apps" };
 
 /** The signed-in user's own AI connections, across all their workspaces. */
 export default async function ConnectionsPage() {
@@ -22,22 +24,21 @@ export default async function ConnectionsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="h1">AI connections</h1>
-        <Link className="btn btn-sm" href="/workspaces">Workspaces</Link>
-      </div>
+      <BackLink href="/workspaces">Back to your businesses</BackLink>
+      <h1 className="h1 mb-6">Your AI apps</h1>
 
       <section className="card mb-6">
         <h2 className="h2 mb-1">Connect an AI app</h2>
         <p className="muted mb-2">
-          In an app that supports MCP connectors, add a custom connector with this address. It will send you
-          here to sign in and choose workspaces.
+          You can let an AI assistant (such as Claude) look things up and do jobs in Bizzy for you. In the
+          assistant, add a custom connector and paste this address. It then brings you back here to choose
+          which businesses it may reach.
         </p>
-        <input readOnly className="input font-mono text-xs" value={`${base}/api/mcp`} aria-label="MCP server address" />
+        <input readOnly className="input font-mono text-sm" value={`${base}/api/mcp`} aria-label="Address to paste into your AI app" />
       </section>
 
       {byClient.size === 0 ? (
-        <p className="muted">No AI apps are connected to your account.</p>
+        <p className="muted">You have not connected any AI apps.</p>
       ) : (
         <ul className="space-y-4">
           {[...byClient.entries()].map(([clientId, rows]) => (
@@ -46,17 +47,24 @@ export default async function ConnectionsPage() {
                 <h2 className="h2">{rows[0].client_name || "Unnamed app"}</h2>
                 <ActionForm action={revokeMyConnectionAction}>
                   <input type="hidden" name="clientId" value={clientId} />
-                  <button className="btn btn-sm btn-danger" type="submit">Disconnect everywhere</button>
+                  <ConfirmButton
+                    className="btn btn-sm btn-danger"
+                    title={`Disconnect ${rows[0].client_name || "this app"} everywhere?`}
+                    message="It stops working in all your businesses right away. You can connect it again later."
+                    confirmLabel="Disconnect everywhere"
+                  >
+                    Disconnect everywhere
+                  </ConfirmButton>
                 </ActionForm>
               </div>
-              <ul className="space-y-2">
+              <ul>
                 {rows.map((c) => (
-                  <li key={c.workspace_id} className="flex items-center justify-between gap-2 text-sm">
-                    <span>
+                  <li key={c.workspace_id} className="row">
+                    <span className="min-w-0 flex-1">
                       <span className="font-medium">{workspaceName(c.workspace_id)}</span>
                       <span className="muted block">
-                        Connected {c.created_at.slice(0, 10)} ·{" "}
-                        {c.last_used_at ? `last used ${c.last_used_at.slice(0, 10)}` : "never used"}
+                        Connected {formatDate(c.created_at)} ·{" "}
+                        {c.last_used_at ? `last used ${formatDate(c.last_used_at)}` : "never used"}
                       </span>
                     </span>
                     <ActionForm action={revokeMyConnectionAction}>

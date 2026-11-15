@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { tryLoad } from "@/app/_lib/load";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmButton } from "@/components/modal";
 import { NoAccess } from "@/components/no-access";
-import { LEVELS, LIVE_PAGES, PAGES, PAGE_LABELS } from "@/server/authz/pages";
+import { PageHeader } from "@/components/ui";
+import { LEVELS, LIVE_PAGES, type Level, PAGES, PAGE_LABELS } from "@/server/authz/pages";
 import { getWebCtx } from "@/server/db/web";
 import { type Role, listRoles } from "@/server/modules/roles/service";
 import { getWorkspace } from "@/server/modules/workspaces/service";
@@ -11,31 +13,39 @@ import { SettingsNav } from "../subnav";
 
 export const metadata: Metadata = { title: "Roles" };
 
+const LEVEL_LABELS: Record<Level, string> = {
+  none: "Can't open it",
+  view: "Can look",
+  edit: "Can add and change",
+  manage: "Can also delete",
+};
+
 /** The permission matrix for one role (or a blank one for "new role"). */
 function RoleForm({ workspaceId, role, editable }: { workspaceId: string; role?: Role; editable: boolean }) {
   const isGuest = role?.kind === "guest";
   return (
     <ActionForm action={saveRoleAction.bind(null, workspaceId)} successMessage="Saved.">
       {role && <input type="hidden" name="roleId" value={role.id} />}
-      <div className="mb-3 flex flex-wrap items-end gap-3">
+      <div className="mb-4 flex flex-wrap items-end gap-4">
         <div>
           <label className="label" htmlFor={`name-${role?.id ?? "new"}`}>Role name</label>
-          <input className="input w-56" id={`name-${role?.id ?? "new"}`} name="name" defaultValue={role?.name ?? ""} required maxLength={60} disabled={!editable} />
+          <input className="input w-64" placeholder="Shop assistant" id={`name-${role?.id ?? "new"}`} name="name" defaultValue={role?.name ?? ""} required maxLength={60} disabled={!editable} />
         </div>
         <div>
-          <label className="label" htmlFor={`kind-${role?.id ?? "new"}`}>Type</label>
-          <select className="input w-56" id={`kind-${role?.id ?? "new"}`} name="kind" defaultValue={role?.kind ?? "custom"} disabled={!editable}>
-            <option value="custom">Team role</option>
-            <option value="guest">Guest (view or edit only, no Settings)</option>
+          <label className="label" htmlFor={`kind-${role?.id ?? "new"}`}>Who is it for?</label>
+          <select className="input w-64" id={`kind-${role?.id ?? "new"}`} name="kind" defaultValue={role?.kind ?? "custom"} disabled={!editable}>
+            <option value="custom">Someone on the team</option>
+            <option value="guest">An outside guest (can never delete)</option>
           </select>
         </div>
       </div>
-      <table className="table mb-3">
+      <div className="overflow-x-auto">
+      <table className="table mb-4">
         <thead>
           <tr>
             <th>Page</th>
-            <th>Access</th>
-            <th>Sensitive fields</th>
+            <th>What they can do</th>
+            <th>Private details</th>
           </tr>
         </thead>
         <tbody>
@@ -45,12 +55,12 @@ function RoleForm({ workspaceId, role, editable }: { workspaceId: string; role?:
               <tr key={page}>
                 <td>
                   {PAGE_LABELS[page]}
-                  {!LIVE_PAGES.includes(page) && <span className="ml-2 text-xs text-muted">(coming later)</span>}
+                  {!LIVE_PAGES.includes(page) && <span className="ml-2 text-sm text-muted">(coming later)</span>}
                 </td>
                 <td>
-                  <select className="input w-32" name={`level_${page}`} defaultValue={current?.level ?? "none"} aria-label={`${PAGE_LABELS[page]} access`} disabled={!editable}>
+                  <select className="input w-52" name={`level_${page}`} defaultValue={current?.level ?? "none"} aria-label={`${PAGE_LABELS[page]} access`} disabled={!editable}>
                     {LEVELS.filter((level) => !(isGuest && level === "manage")).map((level) => (
-                      <option key={level} value={level}>{level}</option>
+                      <option key={level} value={level}>{LEVEL_LABELS[level]}</option>
                     ))}
                   </select>
                 </td>
@@ -62,6 +72,7 @@ function RoleForm({ workspaceId, role, editable }: { workspaceId: string; role?:
           })}
         </tbody>
       </table>
+      </div>
       {editable && (
         <button className="btn btn-primary" type="submit">{role ? "Save role" : "Create role"}</button>
       )}
@@ -82,36 +93,42 @@ export default async function RolesPage({ params }: { params: Promise<{ workspac
 
   return (
     <div className="max-w-3xl">
-      <h1 className="h1 mb-4">Roles</h1>
+      <PageHeader title="Settings" />
       <SettingsNav workspaceId={workspaceId} isOwner={access.isOwner} />
       <p className="muted mb-4">
-        A role says which pages a member can open and how much they can do there: <b>view</b> (read),{" "}
-        <b>edit</b> (create and change) or <b>manage</b> (also delete). Anything not listed is no access.
-        {!editable && " Only the workspace owner can create or change roles."}
+        A role decides which pages a person can open and what they can do there. Make one role for each
+        kind of job, such as &ldquo;Shop assistant&rdquo; or &ldquo;Bookkeeper&rdquo;, then give it to people on the
+        People tab. Tick &ldquo;Private details&rdquo; to let the role see the sensitive information on that page.
+        {!editable && " Only the owner can add or change roles."}
       </p>
 
       <div className="space-y-4">
         {roles.map((role) =>
           role.kind === "full_access" ? (
             <section key={role.id} className="card">
-              <h2 className="h2">{role.name} <span className="badge ml-1">Built in</span></h2>
+              <h2 className="h2">{role.name} <span className="pill ml-1 font-normal">Comes with Bizzy</span></h2>
               <p className="muted mt-1">
-                Manage on every page, including pages added in the future. Cannot grant or change roles,
-                transfer ownership or delete the workspace. This role cannot be edited.
+                Can do everything on every page, including pages added later. Can&apos;t change roles, hand over
+                ownership or delete the workspace. This role can&apos;t be changed.
               </p>
             </section>
           ) : (
             <details key={role.id} className="card">
               <summary className="cursor-pointer font-semibold">
-                {role.name} {role.kind === "guest" && <span className="badge ml-1">Guest</span>}
+                {role.name} {role.kind === "guest" && <span className="pill ml-1 font-normal">Guest</span>}
               </summary>
               <div className="mt-4">
                 <RoleForm workspaceId={workspaceId} role={role} editable={editable} />
                 {editable && (
-                  <ActionForm action={deleteRoleAction.bind(null, workspaceId)} className="mt-3">
+                  <ActionForm action={deleteRoleAction.bind(null, workspaceId)} className="mt-4 border-t border-border pt-4">
                     <input type="hidden" name="roleId" value={role.id} />
-                    <button className="btn btn-sm btn-danger" type="submit">Delete role</button>
-                    <span className="muted ml-2">Members with this role drop to no access.</span>
+                    <ConfirmButton
+                      title={`Delete the role "${role.name}"?`}
+                      message="Everyone who has this role will see nothing until you give them another one."
+                      confirmLabel="Delete role"
+                    >
+                      Delete role
+                    </ConfirmButton>
                   </ActionForm>
                 )}
               </div>
@@ -122,7 +139,7 @@ export default async function RolesPage({ params }: { params: Promise<{ workspac
 
       {editable && (
         <section className="card mt-6">
-          <h2 className="h2 mb-3">New role</h2>
+          <h2 className="h2 mb-3">Add a role</h2>
           <RoleForm workspaceId={workspaceId} editable />
         </section>
       )}
