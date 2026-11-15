@@ -27,6 +27,7 @@ Other commands:
 | Command | What it does |
 | --- | --- |
 | `npm test` | Unit tests, plus the database tests when the local stack is running |
+| `npm run test:e2e` | Browser tests (Playwright). Needs the local stack; first run: `npx playwright install chromium` |
 | `npm run db:reset` | Wipe the local database and re-apply all migrations |
 | `npm run lint` / `npm run typecheck` | Static checks |
 | `npm run db:stop` | Stop the local Supabase containers |
