@@ -94,6 +94,7 @@ describe("every service function is authorized", () => {
         "connectClient",
         "countUnread",
         "createWorkspace",
+        "getOverview",
         "leaveWorkspace",
         "listMyConnections",
         "listMyWorkspaces",

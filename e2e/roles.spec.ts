@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { type Person, chosen, createWorkspace, credentials, invite, pickAndSave, sidebarLinks, signUp } from "./helpers";
+import { type Person, chosen, createRole, createWorkspace, credentials, invite, pickAndSave, sidebarLinks, signUp } from "./helpers";
 
 // The core promise of Bizzy, clicked through in a real browser: an invite
 // carries no access, only the owner grants a role, and a member sees exactly
@@ -43,12 +43,7 @@ test("an invited person joins and sees nothing", async ({ browser }) => {
 
 test("the owner creates a role and assigns it; the choice stays shown", async () => {
   const page = owner.page;
-  await page.goto(`/w/${workspaceId}/settings/roles`);
-  await page.getByPlaceholder("Shop assistant").fill("Sales");
-  await page.locator('select[name="level_tasks"]').selectOption("edit");
-  await page.locator('select[name="level_crm"]').selectOption("edit");
-  await page.getByRole("button", { name: "Create role" }).click();
-  await expect(page.getByText("Sales").first()).toBeVisible();
+  await createRole(owner, workspaceId, "Sales", { tasks: "edit", crm: "edit" });
 
   await page.goto(`/w/${workspaceId}/settings/members`);
   await expect(chosen(page, ROLE_PICKER)).toHaveText(NO_ROLE);

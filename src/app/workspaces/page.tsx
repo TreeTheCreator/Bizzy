@@ -17,6 +17,7 @@ export default async function WorkspacesPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="h1">Your businesses</h1>
         <div className="flex gap-2">
+          {workspaces.length > 0 && <Link className="btn btn-ghost btn-sm" href="/overview">At a glance</Link>}
           <Link className="btn btn-ghost btn-sm" href="/connections">Your AI apps</Link>
           <form action={signOut}>
             <button className="btn btn-sm" type="submit">Sign out</button>

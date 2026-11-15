@@ -6,7 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { Icon, type IconName } from "@/components/icons";
 import { ConfirmButton } from "@/components/modal";
 import { NavLink, SidebarShell } from "@/components/nav";
-import { LIVE_PAGES, PAGE_LABELS, type Page } from "@/server/authz/pages";
+import { LIVE_PAGES, PAGES_OUTSIDE_WORKSPACE, PAGE_LABELS, type Page } from "@/server/authz/pages";
 import { getWebCtx } from "@/server/db/web";
 import { countUnread } from "@/server/modules/notifications/service";
 import { getWorkspace, listMyWorkspaces } from "@/server/modules/workspaces/service";
@@ -36,7 +36,7 @@ export default async function WorkspaceLayout({
   const [workspaces, unread] = await Promise.all([listMyWorkspaces(ctx), countUnread(ctx, workspaceId)]);
   const base = `/w/${workspaceId}`;
   const visiblePages = LIVE_PAGES.filter((page) => access.levels[page] !== "none");
-  const mainPages = visiblePages.filter((page) => page !== "settings");
+  const mainPages = visiblePages.filter((page) => page !== "settings" && !PAGES_OUTSIDE_WORKSPACE.includes(page));
   const hasAnyAccess = Object.values(access.levels).some((level) => level !== "none");
   const otherWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
 
@@ -57,6 +57,14 @@ export default async function WorkspaceLayout({
                 </Link>
               </li>
             ))}
+            {access.levels.dashboard !== "none" && (
+              <li>
+                <Link className="nav-link" href="/overview">
+                  <Icon name="home" />
+                  All businesses at a glance
+                </Link>
+              </li>
+            )}
             <li>
               <Link className="nav-link" href="/workspaces">
                 <Icon name="plus" />

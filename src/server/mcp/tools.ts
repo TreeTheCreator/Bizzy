@@ -52,6 +52,7 @@ import {
   listTasks,
   updateTask,
 } from "@/server/modules/tasks/service";
+import { getOverview } from "@/server/modules/overview/service";
 import { getWorkspace, listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { id, isoDate } from "@/server/validate";
 
@@ -165,6 +166,16 @@ export const TOOLS: readonly Tool[] = [
         access: Object.fromEntries(Object.entries(access.levels).filter(([, level]) => level !== "none")),
       };
     },
+  }),
+
+  tool({
+    name: "get_cross_workspace_overview",
+    description:
+      "Headline numbers (tasks, deals, money) for every workspace where this connection may see the dashboard. A section is null where the member's role does not include that page.",
+    page: null,
+    level: null,
+    input: z.object({}),
+    run: async (ctx) => getOverview(ctx),
   }),
 
   // --- Tasks ----------------------------------------------------------------

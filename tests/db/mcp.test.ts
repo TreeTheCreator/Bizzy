@@ -128,7 +128,7 @@ const VIEW_TOOLS = ["get_task", "list_projects", "list_tasks", "read_doc", "sear
 const CRM_FINANCE_VIEW_TOOLS = [
   "get_cash_flow", "get_deal", "get_invoice", "list_deals", "list_expenses", "list_invoices", "search_contacts",
 ];
-const BASE_TOOLS = ["get_workspace_summary", "list_workspaces"];
+const BASE_TOOLS = ["get_cross_workspace_overview", "get_workspace_summary", "list_workspaces"];
 
 describe.skipIf(!dbTestsEnabled)("AI connections (MCP)", () => {
   let team: Team;

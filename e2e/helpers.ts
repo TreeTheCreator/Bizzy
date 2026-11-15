@@ -36,7 +36,7 @@ export async function signUp(browser: Browser, name: string, options: { email?: 
 export async function createWorkspace(person: Person, name: string): Promise<string> {
   await person.page.goto("/workspaces");
   await person.page.getByPlaceholder("Business name").fill(name);
-  await person.page.getByRole("button", { name: "Get started" }).click();
+  await person.page.getByRole("button", { name: /^(Get started|Add business)$/ }).click();
   await person.page.waitForURL(/\/w\/[0-9a-f-]{36}$/);
   return new URL(person.page.url()).pathname.split("/")[2];
 }
@@ -72,4 +72,18 @@ export async function pickAndSave(page: Page, label: string, option: string): Pr
   await page.getByRole("combobox", { name: label }).selectOption({ label: option });
   await (await saved).finished();
   await page.waitForLoadState("networkidle");
+}
+
+/** The owner creates a role with the given level per page ("view", "edit" or "manage"). */
+export async function createRole(owner: Person, workspaceId: string, name: string, levels: Record<string, string>): Promise<void> {
+  const page = owner.page;
+  await page.goto(`/w/${workspaceId}/settings/roles`);
+  // The page also holds one form per existing role; this is the "new role" form.
+  const form = page.locator("form").filter({ has: page.locator("#name-new") });
+  await form.locator("#name-new").fill(name);
+  for (const [pageName, level] of Object.entries(levels)) {
+    await form.locator(`select[name="level_${pageName}"]`).selectOption(level);
+  }
+  await form.getByRole("button", { name: "Create role" }).click();
+  await expect(page.locator(`input[name="name"][value="${name}"]`)).toBeAttached();
 }
