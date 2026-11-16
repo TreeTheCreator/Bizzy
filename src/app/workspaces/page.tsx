@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { Icon } from "@/components/icons";
 import { getWebCtx } from "@/server/db/web";
+import { BUSINESS_TEMPLATES, BUSINESS_TEMPLATE_KEYS } from "@/server/modules/templates/service";
 import { listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { signOut } from "../(auth)/actions";
 import { createWorkspaceAction } from "./actions";
@@ -47,8 +48,20 @@ export default async function WorkspacesPage() {
       <section className="card">
         <h2 className="h2 mb-1">{workspaces.length === 0 ? "Set up your business" : "Add another business"}</h2>
         <p className="muted mb-3">Each business gets its own separate space. You will be its owner.</p>
-        <ActionForm action={createWorkspaceAction} className="flex flex-wrap gap-2">
+        <ActionForm action={createWorkspaceAction} className="space-y-3">
           <input className="input max-w-xs" name="name" placeholder="Business name" aria-label="Business name" required maxLength={80} />
+          <label className="block max-w-xs">
+            <span className="label">What kind of business is it? (optional)</span>
+            <select className="input" name="template" defaultValue="">
+              <option value="">Start empty</option>
+              {BUSINESS_TEMPLATE_KEYS.map((key) => (
+                <option key={key} value={key}>{BUSINESS_TEMPLATES[key].label}</option>
+              ))}
+            </select>
+            <span className="muted mt-1 block">
+              Choosing one adds a few starter tasks, ready-made task lists and guide docs. You can change or delete them.
+            </span>
+          </label>
           <button className="btn btn-primary" type="submit">{workspaces.length === 0 ? "Get started" : "Add business"}</button>
         </ActionForm>
       </section>

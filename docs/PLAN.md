@@ -189,6 +189,7 @@ Acceptance: a Sales member's AI client cannot list or call Finance tools; revoca
 
 **Phase 3: Overview and people.** Cross-workspace dashboard (calls `authorize()` per workspace and page, then aggregates), HR with sensitive compensation, notifications, reports, business templates.
 Acceptance: the dashboard shows only workspaces and pages the viewer may access.
+Built Nov 16, 2026. What differs from this plan (templates defined in code, no onboarding checklists or HR notifications yet) is listed in [SECURITY-REVIEW-phase-3.md](SECURITY-REVIEW-phase-3.md).
 
 **Phase 4: Scale and polish.** Operations, Marketing, Support, automations, in-app AI assistant (through the same service layer), Stripe billing, SSO, mobile polish, load test, security review.
 

@@ -2,7 +2,7 @@
 
 Run several businesses from one place. Each business is a **workspace**; the workspace owner decides, page by page, what every member can see and do.
 
-Status: **Phase 2 (AI connections and business core)**, not yet deployed. Phase 2 adds AI app connections (OAuth consent and an MCP endpoint), the owner's AI policy, Customers, Money, a REST API with keys, rate limits, webhooks and CSV import/export. Phase 1: accounts, workspaces and switcher, invites, owner-only role management, page-level permissions, the built-in Full Access role, guest roles with expiry, audit log, Tasks, Docs with file storage, notifications and search.
+Status: **Phase 3 (Overview and people)**, not yet deployed. Phase 3 adds an at-a-glance overview across all your businesses, HR with private pay and time off, reports, and business templates. Phase 2 added AI app connections (OAuth consent and an MCP endpoint), the owner's AI policy, Customers, Money, a REST API with keys, rate limits, webhooks and CSV import/export. Phase 1: accounts, workspaces and switcher, invites, owner-only role management, page-level permissions, the built-in Full Access role, guest roles with expiry, audit log, Tasks, Docs with file storage, notifications and search.
 
 - Plan and decisions: [docs/PLAN.md](docs/PLAN.md)
 - Deploying to Vercel + Supabase: [docs/DEPLOY.md](docs/DEPLOY.md)
@@ -10,6 +10,8 @@ Status: **Phase 2 (AI connections and business core)**, not yet deployed. Phase 
 - Phase 1 security self-review: [docs/SECURITY-REVIEW-phase-1.md](docs/SECURITY-REVIEW-phase-1.md)
 - Phase 2 demo script: [docs/DEMO-phase-2.md](docs/DEMO-phase-2.md)
 - Phase 2 security self-review: [docs/SECURITY-REVIEW-phase-2.md](docs/SECURITY-REVIEW-phase-2.md)
+- Phase 3 demo script: [docs/DEMO-phase-3.md](docs/DEMO-phase-3.md)
+- Phase 3 security self-review: [docs/SECURITY-REVIEW-phase-3.md](docs/SECURITY-REVIEW-phase-3.md)
 
 ## Run it locally
 
