@@ -5,6 +5,8 @@ import type { NextConfig } from "next";
 // nothing here may be cached or shared between users.
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // CSV imports are posted through a server action (default limit: 1 MB).
+  experimental: { serverActions: { bodySizeLimit: "3mb" } },
   turbopack: {
     rules: {
       "*.css": {

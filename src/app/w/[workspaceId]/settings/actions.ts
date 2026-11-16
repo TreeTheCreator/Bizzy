@@ -12,6 +12,7 @@ import {
   revokeInvite,
   setMemberRole,
 } from "@/server/modules/members/service";
+import { revokeMemberConnection, setMcpPolicy } from "@/server/modules/mcp/service";
 import { type RoleInput, createRole, deleteRole, updateRole } from "@/server/modules/roles/service";
 import { deleteWorkspace, renameWorkspace, transferOwnership } from "@/server/modules/workspaces/service";
 
@@ -116,6 +117,23 @@ export async function saveRoleAction(workspaceId: string, _prev: ActionState, fo
 export async function deleteRoleAction(workspaceId: string, _prev: ActionState, formData: FormData) {
   return run(async () => {
     await deleteRole(await getWebCtx(), workspaceId, str(formData, "roleId"));
+    refresh(workspaceId);
+  });
+}
+
+export async function setMcpPolicyAction(workspaceId: string, _prev: ActionState, formData: FormData) {
+  return run(async () => {
+    await setMcpPolicy(await getWebCtx(), workspaceId, { policy: str(formData, "policy") });
+    refresh(workspaceId);
+  });
+}
+
+export async function revokeMemberConnectionAction(workspaceId: string, _prev: ActionState, formData: FormData) {
+  return run(async () => {
+    await revokeMemberConnection(await getWebCtx(), workspaceId, {
+      userId: str(formData, "userId"),
+      clientId: str(formData, "clientId"),
+    });
     refresh(workspaceId);
   });
 }

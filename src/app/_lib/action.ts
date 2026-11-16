@@ -1,5 +1,7 @@
 import { unstable_rethrow } from "next/navigation";
+import { after } from "next/server";
 import { AppError, ReauthRequired } from "@/server/errors";
+import { drainWebhooks } from "@/server/webhooks/deliver";
 
 /** What every form action returns to the browser. */
 export interface ActionState {
@@ -13,6 +15,8 @@ export interface ActionState {
 
 /** Run a server action body and turn service errors into form state. */
 export async function run(fn: () => Promise<ActionState | void>): Promise<ActionState> {
+  // The action may have queued webhook events; send them once the response is out.
+  after(() => drainWebhooks());
   try {
     return (await fn()) ?? { ok: true };
   } catch (error) {

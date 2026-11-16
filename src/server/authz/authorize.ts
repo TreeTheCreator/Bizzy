@@ -31,7 +31,7 @@ export interface Access {
   sensitive: Record<Page, boolean>;
   /** Password entered within the last 10 minutes. */
   recentAuth: boolean;
-  /** The session belongs to an OAuth client (an AI connection). */
+  /** A delegated token: an OAuth client (an AI connection) or an API key. */
   oauthClient: boolean;
 }
 
@@ -91,6 +91,15 @@ export async function authorize(
   action: Action,
 ): Promise<Access> {
   const access = await getAccess(ctx, workspaceId);
+
+  // The MCP endpoint only accepts tokens issued to an OAuth client, because
+  // the database applies the connection's workspace list and the workspace's
+  // AI policy to exactly those tokens. Anything else on that channel fails closed.
+  // The same holds for the REST API and its key tokens.
+  if ((ctx.channel === "mcp" || ctx.channel === "api") && !access.oauthClient) {
+    await logDenied(ctx, workspaceId, page, action);
+    throw new PermissionDenied();
+  }
 
   if (isOwnerAction(action)) {
     const allowed = access.isOwner && ctx.channel === "web" && !access.oauthClient;

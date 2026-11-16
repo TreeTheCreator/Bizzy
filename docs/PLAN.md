@@ -189,8 +189,50 @@ Acceptance: a Sales member's AI client cannot list or call Finance tools; revoca
 
 **Phase 3: Overview and people.** Cross-workspace dashboard (calls `authorize()` per workspace and page, then aggregates), HR with sensitive compensation, notifications, reports, business templates.
 Acceptance: the dashboard shows only workspaces and pages the viewer may access.
+Built Nov 16, 2026. What differs from this plan (templates defined in code, no onboarding checklists or HR notifications yet) is listed in [SECURITY-REVIEW-phase-3.md](SECURITY-REVIEW-phase-3.md).
 
 **Phase 4: Scale and polish.** Operations, Marketing, Support, automations, in-app AI assistant (through the same service layer), Stripe billing, SSO, mobile polish, load test, security review.
+
+### Work that can be done before deploying (planned Nov 16, 2026)
+
+Everything below can be built and tested on the local Supabase stack. Every step ends with the same closing tasks: database tests for allow/deny and tenant isolation, a browser test for the main flow, lint + type-check + build, and a line in the security review.
+
+**Stage A: close the Phase 3 gaps**
+
+1. **Push the branch and get CI green.** Push `phase-3-e2e-and-overview`, open a pull request, fix whatever the browser tests turn up against the production build.
+2. **HR notifications.** Notification kinds for "time off requested" and "time off decided"; written from the HR service; shown on the notifications page.
+3. **Self-service time off.** Link a person record to a member; a policy letting a member insert and view leave requests for their own person record only; a "My time off" page visible without HR access; test that a member cannot file for someone else or approve their own.
+4. **Sick leave privacy.** Hide the kind of leave unless the caller has HR private details or it is their own request; apply it in the HR list, the `list_leave` AI tool and the reports.
+5. **Report sums in SQL.** Move each report's totals into a SECURITY INVOKER function; remove the 10,000-row read; check totals match the old results on seeded data.
+6. **REST API for HR, reports and overview.** `/api/v1` routes wrapping the existing services; API key scopes for the new pages; no pay changes through the API.
+7. **Onboarding checklists and re-appliable templates.** An `onboarding_checklists` table tied to a person, with RLS on the HR page; start a checklist when a person is added; apply a template from Settings, skipping items that already exist.
+
+**Stage B: hardening**
+
+8. **Content-Security-Policy.** Read the Next.js guide for headers and nonces; add the header in `src/proxy.ts` in report-only mode; walk every page, fix violations, then enforce.
+9. **Web rate limit.** Reuse `rate_limits` for server actions, keyed by user; tighter limits on search, sign-in and anything that writes audit denials; a plain "slow down" message.
+10. **Two-factor sign-in.** Enrol, verify and remove screens using Supabase Auth's authenticator-app support; require a code in the re-authentication gate for owner-only actions; recovery guidance for a lost device.
+11. **Google sign-in.** The owner creates the Google OAuth credentials; wire the button and callback; handle an existing email-and-password account with the same address.
+
+**Stage C: Phase 4 modules**
+
+Steps 12–14 follow one pattern: migration with tables and RLS, a page in `authz/pages.ts`, service with `authorize()`, web pages, AI tools, REST routes, CSV import/export, and a section in the overview.
+
+12. **Support.** `tickets` and ticket comments; status, priority, assignee, link to a contact. AI tools: list, get, create, update, comment; delete with confirm.
+13. **Operations.** `inventory_items`, `vendors`, `orders`, order lines; stock changes when an order is received or fulfilled, inside one database function; low-stock notification.
+14. **Marketing.** `campaigns` and `content_items` with a calendar view; link a campaign to deals for a simple results figure.
+15. **Automations.** `automations` and `automation_runs`; a closed list of triggers (task done, deal moved, invoice overdue, ticket opened) and actions (create task, notify, call webhook); run through the queue as the automation's creator, re-checking their access on every run; test that removing the creator's role stops the automation.
+16. **Mobile polish.** Every page at phone width; fix navigation, tables and forms.
+
+**Stage D: needs outside accounts**
+
+17. **Stripe billing (test mode).** The owner creates the Stripe account and test keys. `subscriptions` table; checkout, customer portal, webhook handler with signature checks; plan limits enforced in the service layer; `billing.manage` stays owner-only; tested with the Stripe CLI forwarding webhooks to localhost.
+18. **In-app AI assistant.** The owner supplies a Claude API key. A chat panel calling the same tool registry as `/api/mcp`, as the signed-in user; obeys the workspace AI policy; asks for confirmation before any destructive tool; stored content is treated as data, tested with a doc that contains planted instructions.
+19. **Local load test and Phase 4 security review.** Seed a large workspace and time the slow pages and the overview; add indexes where needed; write `SECURITY-REVIEW-phase-4.md` and `DEMO-phase-4.md`.
+
+**Left out:** SSO, because it cannot be meaningfully tested without a real identity provider.
+
+**Needs a real deployment:** running `DEPLOY.md` end to end, Vercel Cron on a schedule, real email delivery, AI clients that only connect to public HTTPS addresses, production Stripe, meaningful load numbers.
 
 ## 9. Points in the spec I resolved, please confirm
 

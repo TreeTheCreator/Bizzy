@@ -2,12 +2,16 @@
 
 Run several businesses from one place. Each business is a **workspace**; the workspace owner decides, page by page, what every member can see and do.
 
-Status: **Phase 1 (Foundation)**. Accounts, workspaces and switcher, invites, owner-only role management, page-level permissions, the built-in Full Access role, guest roles with expiry, audit log, Tasks, Docs with file storage, notifications and search.
+Status: **Phase 3 (Overview and people)**, not yet deployed. Phase 3 adds an at-a-glance overview across all your businesses, HR with private pay and time off, reports, and business templates. Phase 2 added AI app connections (OAuth consent and an MCP endpoint), the owner's AI policy, Customers, Money, a REST API with keys, rate limits, webhooks and CSV import/export. Phase 1: accounts, workspaces and switcher, invites, owner-only role management, page-level permissions, the built-in Full Access role, guest roles with expiry, audit log, Tasks, Docs with file storage, notifications and search.
 
 - Plan and decisions: [docs/PLAN.md](docs/PLAN.md)
 - Deploying to Vercel + Supabase: [docs/DEPLOY.md](docs/DEPLOY.md)
 - Phase 1 demo script: [docs/DEMO-phase-1.md](docs/DEMO-phase-1.md)
 - Phase 1 security self-review: [docs/SECURITY-REVIEW-phase-1.md](docs/SECURITY-REVIEW-phase-1.md)
+- Phase 2 demo script: [docs/DEMO-phase-2.md](docs/DEMO-phase-2.md)
+- Phase 2 security self-review: [docs/SECURITY-REVIEW-phase-2.md](docs/SECURITY-REVIEW-phase-2.md)
+- Phase 3 demo script: [docs/DEMO-phase-3.md](docs/DEMO-phase-3.md)
+- Phase 3 security self-review: [docs/SECURITY-REVIEW-phase-3.md](docs/SECURITY-REVIEW-phase-3.md)
 
 ## Run it locally
 
@@ -25,6 +29,7 @@ Other commands:
 | Command | What it does |
 | --- | --- |
 | `npm test` | Unit tests, plus the database tests when the local stack is running |
+| `npm run test:e2e` | Browser tests (Playwright). Needs the local stack; first run: `npx playwright install chromium` |
 | `npm run db:reset` | Wipe the local database and re-apply all migrations |
 | `npm run lint` / `npm run typecheck` | Static checks |
 | `npm run db:stop` | Stop the local Supabase containers |
@@ -38,7 +43,7 @@ There is one authorization layer and everything goes through it.
 3. **Entry points are thin.** Pages and server actions only call service functions. The API and MCP server (Phase 2) will call the same ones.
 4. **The owner is not a role.** Ownership is `workspaces.owner_id`. Only the owner can create, edit, delete or assign roles, only from the web app, and only within 10 minutes of typing their password. Three independent checks enforce this: `authorize()`, the RLS policies, and database triggers.
 
-Queries always run as the signed-in user. The app never uses the Supabase service-role key; only the test suite does, to create test users.
+Queries always run as the signed-in user (or, for the REST API, as the member who created the API key). The Supabase service-role key is used by two background workers only: webhook delivery (`src/server/webhooks/deliver.ts`), which claims queued deliveries and records their results, and orphaned-file cleanup (`src/server/files/cleanup.ts`), which removes stored files that no record points to. A test fails if any other file touches it.
 
 ## Layout
 

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 // "// authz: user-scoped (reason)" comment directly above it.
 
 const MODULES = join(process.cwd(), "src", "server", "modules");
-const PURE_HELPERS = new Set(["nextDueDate"]); // no data access, no ctx
+const PURE_HELPERS = new Set(["nextDueDate", "periodRange"]); // no data access, no ctx
 
 interface Fn {
   file: string;
@@ -43,6 +43,15 @@ function exportedFunctions(file: string): Fn[] {
 const services = readdirSync(MODULES).map((dir) => join(MODULES, dir, "service.ts"));
 const functions = services.flatMap(exportedFunctions).filter((fn) => !PURE_HELPERS.has(fn.name));
 
+/** Every .ts/.tsx file under a directory. */
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return /\.tsx?$/.test(entry.name) ? [path] : [];
+  });
+}
+
 describe("every service function is authorized", () => {
   it("finds the service modules", () => {
     expect(services.length).toBeGreaterThanOrEqual(8);
@@ -64,18 +73,40 @@ describe("every service function is authorized", () => {
     });
   }
 
+  it("only the background workers may use the service-role client", () => {
+    const users = sourceFiles(join(process.cwd(), "src"))
+      .filter((file) => /SUPABASE_SERVICE_ROLE_KEY|db\/admin["']/.test(readFileSync(file, "utf8")))
+      .map((file) => file.split(/[\\/]src[\\/]/)[1].replace(/\\/g, "/"))
+      .sort();
+    expect(users).toEqual([
+      // Reads the variable only to show a "not delivering" notice; makes no client.
+      "app/w/[workspaceId]/settings/webhooks/page.tsx",
+      "server/db/admin.ts",
+      "server/files/cleanup.ts",
+      "server/webhooks/deliver.ts",
+    ]);
+  });
+
   it("the opt-out list is exactly the reviewed set", () => {
     expect(functions.filter((f) => f.optedOut).map((f) => f.name).sort()).toEqual(
       [
         "acceptInvite",
+        "connectClient",
         "countUnread",
         "createWorkspace",
+        "getOverview",
         "leaveWorkspace",
+        "listMyConnections",
         "listMyWorkspaces",
         "listNotifications",
+        "logApiCall",
+        "logMcpCall",
         "markAllRead",
         "previewInvite",
+        "recordExport",
         "recordLogin",
+        "revokeMyConnection",
+        "withinRateLimit",
       ].sort(),
     );
   });

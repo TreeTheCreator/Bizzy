@@ -193,6 +193,19 @@ describe.skipIf(!dbTestsEnabled)("creator-only role granting", () => {
       expect(access.recentAuth).toBe(true);
       expect(access.oauthClient).toBe(false);
     });
+
+    it("refreshing the session does not renew the sign-in time", async () => {
+      // Otherwise a session kept alive by silent refreshes would always count as fresh.
+      const user = await createUser("refresher");
+      const amrOf = (token: string) =>
+        JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).amr as { timestamp: number }[];
+      const before = (await user.db.auth.getSession()).data.session!;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const { data, error } = await user.db.auth.refreshSession();
+      expect(error).toBeNull();
+      expect(data.session!.access_token).not.toBe(before.access_token);
+      expect(amrOf(data.session!.access_token)).toEqual(amrOf(before.access_token));
+    });
   });
 
   describe("changes apply on the very next call", () => {

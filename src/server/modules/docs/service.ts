@@ -65,6 +65,24 @@ export async function listDocs(ctx: Ctx, workspaceId: string): Promise<DocSummar
   );
 }
 
+/** Docs whose title or content contains the query (titles only, no content). */
+export async function searchDocs(ctx: Ctx, workspaceId: string, query: string): Promise<DocSummary[]> {
+  await authorize(ctx, parse(id, workspaceId), "docs", "view");
+  // Strip characters that have meaning in PostgREST filters or LIKE patterns.
+  const term = String(query).replace(/[%_\\,()*"']/g, " ").trim().slice(0, 100);
+  if (term.length < 2) throw new Invalid("query: enter at least 2 characters");
+  const pattern = `%${term}%`;
+  return unwrap<DocSummary[]>(
+    await ctx.db
+      .from("docs")
+      .select("id, parent_id, kind, title, updated_at")
+      .eq("workspace_id", workspaceId)
+      .or(`title.ilike.${pattern},content.ilike.${pattern}`)
+      .order("updated_at", { ascending: false })
+      .limit(25),
+  );
+}
+
 export async function getDoc(
   ctx: Ctx,
   workspaceId: string,
@@ -147,16 +165,18 @@ export async function updateDoc(
 /** Delete a doc. Child docs move to the top level; attached files are deleted. */
 export async function deleteDoc(ctx: Ctx, workspaceId: string, docId: string): Promise<void> {
   await authorize(ctx, parse(id, workspaceId), "docs", "manage");
-  const files = unwrap<{ id: string; storage_path: string }[]>(
+  // Rows first, then the stored objects: if the second step fails, what is
+  // left is an object with no row, which the daily cleanup sweep removes.
+  const files = unwrap<{ storage_path: string }[]>(
     await ctx.db
       .from("files")
-      .select("id, storage_path")
+      .delete()
       .eq("workspace_id", workspaceId)
-      .eq("doc_id", parse(id, docId)),
+      .eq("doc_id", parse(id, docId))
+      .select("storage_path"),
   );
   if (files.length > 0) {
     await ctx.db.storage.from(FILE_BUCKET).remove(files.map((f) => f.storage_path));
-    unwrap(await ctx.db.from("files").delete().eq("workspace_id", workspaceId).eq("doc_id", docId));
   }
   const rows = unwrap<{ id: string }[]>(
     await ctx.db.from("docs").delete().eq("workspace_id", workspaceId).eq("id", docId).select("id"),
@@ -224,6 +244,8 @@ export async function confirmUpload(
   if (error || !found?.some((object) => object.name === data.name)) {
     throw new Invalid("The upload did not finish. Please try again.");
   }
+  // Size and type are not sent: the database copies them from the stored
+  // object (files_read_storage trigger), so what the browser claimed is ignored.
   unwrap(
     await ctx.db.from("files").insert({
       id: fileId,
@@ -231,8 +253,6 @@ export async function confirmUpload(
       doc_id: data.docId,
       name: data.name,
       storage_path: path,
-      size_bytes: data.sizeBytes,
-      mime_type: data.mimeType,
       uploaded_by: ctx.userId,
     }),
   );

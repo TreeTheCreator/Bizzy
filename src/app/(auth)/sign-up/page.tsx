@@ -16,9 +16,9 @@ export default async function SignUpPage({
   const next = safeNextPath((await searchParams).next);
   if (await getOptionalCtx()) redirect(next);
   return (
-    <div className="card">
-      <h1 className="h1 mb-4">Create your account</h1>
-      <ActionForm action={signUp} className="space-y-3">
+    <div className="card p-6">
+      <h1 className="h1 mb-5">Create your account</h1>
+      <ActionForm action={signUp} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <div>
           <label className="label" htmlFor="name">Your name</label>
@@ -31,13 +31,13 @@ export default async function SignUpPage({
         <div>
           <label className="label" htmlFor="password">Password</label>
           <input className="input" id="password" name="password" type="password" autoComplete="new-password" required minLength={8} />
-          <p className="muted mt-1">At least 8 characters.</p>
+          <p className="muted mt-1">Use at least 8 characters.</p>
         </div>
         <button className="btn btn-primary w-full" type="submit">Create account</button>
       </ActionForm>
-      <p className="muted mt-4">
+      <p className="muted mt-5">
         Already have an account?{" "}
-        <Link className="text-accent underline" href={`/sign-in?next=${encodeURIComponent(next)}`}>
+        <Link className="link font-medium" href={`/sign-in?next=${encodeURIComponent(next)}`}>
           Sign in
         </Link>
       </p>

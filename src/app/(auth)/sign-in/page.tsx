@@ -16,9 +16,9 @@ export default async function SignInPage({
   const next = safeNextPath((await searchParams).next);
   if (await getOptionalCtx()) redirect(next);
   return (
-    <div className="card">
-      <h1 className="h1 mb-4">Sign in</h1>
-      <ActionForm action={signIn} className="space-y-3">
+    <div className="card p-6">
+      <h1 className="h1 mb-5">Sign in</h1>
+      <ActionForm action={signIn} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <div>
           <label className="label" htmlFor="email">Email</label>
@@ -30,9 +30,9 @@ export default async function SignInPage({
         </div>
         <button className="btn btn-primary w-full" type="submit">Sign in</button>
       </ActionForm>
-      <p className="muted mt-4">
+      <p className="muted mt-5">
         New here?{" "}
-        <Link className="text-accent underline" href={`/sign-up?next=${encodeURIComponent(next)}`}>
+        <Link className="link font-medium" href={`/sign-up?next=${encodeURIComponent(next)}`}>
           Create an account
         </Link>
       </p>

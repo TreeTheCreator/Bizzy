@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { tryLoad } from "@/app/_lib/load";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/ui";
 import { PAGE_LABELS } from "@/server/authz/pages";
 import { getWebCtx } from "@/server/db/web";
 import { search } from "@/server/modules/search/service";
@@ -24,21 +25,21 @@ export default async function SearchPage({
 
   return (
     <div className="max-w-2xl">
-      <h1 className="h1 mb-4">Search</h1>
-      <form className="mb-4 flex gap-2">
-        <input className="input" type="search" name="q" defaultValue={q} aria-label="Search" placeholder="Search tasks and docs" />
+      <PageHeader title="Search" />
+      <form className="mb-5 flex gap-2" role="search">
+        <input className="input" type="search" name="q" defaultValue={q} aria-label="Search" placeholder="Type a word to look for" />
         <button className="btn btn-primary" type="submit">Search</button>
       </form>
       {q.trim().length >= 2 && (
         <section className="card">
           {hits.length === 0 ? (
-            <p className="muted">No results in the pages you can see.</p>
+            <p className="muted">Nothing found for &ldquo;{q}&rdquo;. Try a shorter or different word.</p>
           ) : (
-            <ul className="space-y-2 text-sm">
+            <ul>
               {hits.map((hit) => (
-                <li key={`${hit.page}-${hit.id}`}>
-                  <span className="badge mr-2">{PAGE_LABELS[hit.page]}</span>
-                  <Link className="hover:underline" href={hit.link}>{hit.title}</Link>
+                <li key={`${hit.page}-${hit.id}`} className="row">
+                  <Link className="min-w-0 flex-1 font-medium hover:underline" href={hit.link}>{hit.title}</Link>
+                  <span className="pill">{PAGE_LABELS[hit.page]}</span>
                 </li>
               ))}
             </ul>

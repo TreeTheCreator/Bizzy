@@ -36,3 +36,16 @@ jobs:
 
       - name: Build
         run: npx next build
+
+      # A handful of real browser flows against the production build.
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests (sign up, invite, roles, restricted view)
+        run: npm run test:e2e
+      - name: Keep the browser test report when it fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { tryLoad } from "@/app/_lib/load";
+import { LocalTime } from "@/components/local-time";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/ui";
+import { humanize } from "@/lib/format";
 import { getWebCtx } from "@/server/db/web";
 import { listAudit } from "@/server/modules/audit/service";
 import { listMembers } from "@/server/modules/members/service";
 import { listRoles } from "@/server/modules/roles/service";
 import { SettingsNav } from "../subnav";
 
-export const metadata: Metadata = { title: "Audit log" };
+export const metadata: Metadata = { title: "Activity log" };
 
 export default async function AuditPage({
   params,
@@ -25,7 +28,7 @@ export default async function AuditPage({
     const [members, roles] = await Promise.all([listMembers(ctx, workspaceId), listRoles(ctx, workspaceId)]);
     return { entries, members, roles };
   });
-  if (loaded.denied) return <NoAccess what="the audit log" />;
+  if (loaded.denied) return <NoAccess what="the activity log" />;
   const { entries, members, roles } = loaded.data;
   // Targets are stored as ids; show the member or role name instead. A deleted
   // role falls back to the name recorded in the entry itself.
@@ -49,45 +52,48 @@ export default async function AuditPage({
 
   return (
     <div className="max-w-5xl">
-      <h1 className="h1 mb-4">Audit log</h1>
+      <PageHeader title="Settings" />
       <SettingsNav workspaceId={workspaceId} isOwner />
       <p className="muted mb-4">
-        Sign-ins, role and member changes, invites and refused actions. Entries cannot be edited or deleted.
+        A record of who signed in, who changed roles or people, invites, and anything that was blocked.
+        Nobody can change or delete these entries.
       </p>
       <div className="card overflow-x-auto">
         <table className="table">
           <thead>
             <tr>
-              <th>When (UTC)</th>
+              <th>When</th>
               <th>Who</th>
-              <th>Event</th>
-              <th>Target</th>
-              <th>Via</th>
+              <th>What happened</th>
+              <th>To whom or what</th>
+              <th>Through</th>
               <th>Result</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
               <tr key={entry.id}>
-                <td className="whitespace-nowrap font-mono text-xs">{entry.created_at.slice(0, 19).replace("T", " ")}</td>
+                <td className="whitespace-nowrap"><LocalTime iso={entry.created_at} /></td>
                 <td>{who(entry.actor_id)}</td>
-                <td className="font-mono text-xs">{entry.event}</td>
-                <td className="text-xs">
+                <td>{humanize(entry.event)}</td>
+                <td>
                   {targetLabel(entry)}
                   {detail(entry) && <span className="ml-2 text-muted">{detail(entry)}</span>}
                 </td>
-                <td>{entry.channel}</td>
-                <td className={entry.outcome === "ok" ? "" : "text-danger"}>{entry.outcome}</td>
+                <td>{humanize(entry.channel)}</td>
+                <td>
+                  <span className={entry.outcome === "ok" ? "pill pill-ok" : "pill pill-danger"}>{entry.outcome === "ok" ? "Done" : humanize(entry.outcome)}</span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {entries.length === 0 && <p className="muted p-2">No entries.</p>}
+        {entries.length === 0 && <p className="muted p-2">Nothing has been recorded yet.</p>}
       </div>
       {entries.length === 100 && last && (
-        <p className="mt-3 text-sm">
-          <Link className="text-accent underline" href={`/w/${workspaceId}/settings/audit?before=${last.id}`}>
-            Older entries
+        <p className="mt-3">
+          <Link className="link" href={`/w/${workspaceId}/settings/audit?before=${last.id}`}>
+            Show older entries
           </Link>
         </p>
       )}

@@ -3,11 +3,23 @@ import { notFound } from "next/navigation";
 import { signOut } from "@/app/(auth)/actions";
 import { tryLoad } from "@/app/_lib/load";
 import { ActionForm } from "@/components/action-form";
-import { LIVE_PAGES, PAGE_LABELS } from "@/server/authz/pages";
+import { Icon, type IconName } from "@/components/icons";
+import { ConfirmButton } from "@/components/modal";
+import { NavLink, SidebarShell } from "@/components/nav";
+import { LIVE_PAGES, PAGES_OUTSIDE_WORKSPACE, PAGE_LABELS, type Page } from "@/server/authz/pages";
 import { getWebCtx } from "@/server/db/web";
 import { countUnread } from "@/server/modules/notifications/service";
 import { getWorkspace, listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { leaveWorkspaceAction } from "./settings/actions";
+
+const PAGE_ICONS: Partial<Record<Page, IconName>> = {
+  tasks: "tasks",
+  docs: "docs",
+  crm: "customers",
+  finance: "money",
+  hr: "customers",
+  settings: "settings",
+};
 
 export default async function WorkspaceLayout({
   children,
@@ -25,26 +37,41 @@ export default async function WorkspaceLayout({
   const [workspaces, unread] = await Promise.all([listMyWorkspaces(ctx), countUnread(ctx, workspaceId)]);
   const base = `/w/${workspaceId}`;
   const visiblePages = LIVE_PAGES.filter((page) => access.levels[page] !== "none");
+  const mainPages = visiblePages.filter((page) => page !== "settings" && !PAGES_OUTSIDE_WORKSPACE.includes(page));
   const hasAnyAccess = Object.values(access.levels).some((level) => level !== "none");
+  // Reports draw on these pages; the link shows when the role includes at least one.
+  const hasReports = (["tasks", "crm", "finance", "hr"] as const).some((page) => access.levels[page] !== "none");
+  const otherWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b border-border bg-surface p-4 md:w-60 md:shrink-0 md:border-b-0 md:border-r">
-        <details className="mb-4">
-          <summary className="cursor-pointer text-base font-semibold">{workspace.name}</summary>
-          <ul className="mt-2 space-y-1 text-sm">
-            {workspaces
-              .filter((w) => w.id !== workspaceId)
-              .map((w) => (
-                <li key={w.id}>
-                  <Link className="block rounded px-2 py-1 hover:bg-bg" href={`/w/${w.id}`}>
-                    {w.name}
-                  </Link>
-                </li>
-              ))}
+      <SidebarShell title={workspace.name}>
+        <details className="group mb-3">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 text-lg font-semibold hover:bg-bg [&::-webkit-details-marker]:hidden">
+            <span className="truncate">{workspace.name}</span>
+            <Icon name="chevron" size={18} className="text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="mt-1 space-y-1 border-b border-border pb-3">
+            {otherWorkspaces.map((w) => (
+              <li key={w.id}>
+                <Link className="nav-link" href={`/w/${w.id}`}>
+                  <Icon name="swap" />
+                  <span className="truncate">{w.name}</span>
+                </Link>
+              </li>
+            ))}
+            {access.levels.dashboard !== "none" && (
+              <li>
+                <Link className="nav-link" href="/overview">
+                  <Icon name="home" />
+                  All businesses at a glance
+                </Link>
+              </li>
+            )}
             <li>
-              <Link className="block rounded px-2 py-1 text-accent hover:bg-bg" href="/workspaces">
-                All workspaces / new
+              <Link className="nav-link" href="/workspaces">
+                <Icon name="plus" />
+                {otherWorkspaces.length > 0 ? "All businesses" : "Add another business"}
               </Link>
             </li>
           </ul>
@@ -52,46 +79,61 @@ export default async function WorkspaceLayout({
 
         {hasAnyAccess && (
           <>
-            <form action={`${base}/search`} className="mb-3">
-              <input className="input" type="search" name="q" placeholder="Search" aria-label="Search this workspace" />
+            <form action={`${base}/search`} className="relative mb-3" role="search">
+              <Icon name="search" size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input className="input pl-10" type="search" name="q" placeholder="Search" aria-label="Search this workspace" />
             </form>
-            <nav aria-label="Workspace" className="space-y-1 text-sm">
-              <Link className="block rounded px-2 py-1 hover:bg-bg" href={base}>Home</Link>
-              {visiblePages.map((page) => (
-                <Link key={page} className="block rounded px-2 py-1 hover:bg-bg" href={`${base}/${page}`}>
+            <nav aria-label="Main menu" className="space-y-1">
+              <NavLink href={base} icon="home" exact>Home</NavLink>
+              {mainPages.map((page) => (
+                <NavLink key={page} href={`${base}/${page}`} icon={PAGE_ICONS[page] ?? "docs"}>
                   {PAGE_LABELS[page]}
-                </Link>
+                </NavLink>
               ))}
-              <Link className="block rounded px-2 py-1 hover:bg-bg" href={`${base}/notifications`}>
-                Notifications{unread > 0 && <span className="badge ml-2">{unread}</span>}
-              </Link>
+              {hasReports && <NavLink href={`${base}/reports`} icon="docs">Reports</NavLink>}
+              <NavLink href={`${base}/notifications`} icon="bell">
+                Alerts
+                {unread > 0 && (
+                  <span className="pill pill-danger ml-auto" aria-label={`${unread} unread`}>{unread}</span>
+                )}
+              </NavLink>
+              {visiblePages.includes("settings") && (
+                <div className="pt-3">
+                  <NavLink href={`${base}/settings`} icon="settings">Settings</NavLink>
+                </div>
+              )}
             </nav>
           </>
         )}
 
-        <div className="mt-6 border-t border-border pt-3 text-sm">
-          <p className="truncate text-muted" title={ctx.email}>{ctx.email}</p>
-          <p className="muted">
-            {access.isOwner ? "Owner" : (access.roleName ?? "No role")}
-          </p>
-          <form action={signOut} className="mt-2">
+        <div className="mt-6 border-t border-border px-3 pt-4">
+          <p className="truncate text-[15px]" title={ctx.email}>{ctx.email}</p>
+          <p className="muted">{access.isOwner ? "Owner" : (access.roleName ?? "No role yet")}</p>
+          <form action={signOut} className="mt-3">
             <button className="btn btn-sm" type="submit">Sign out</button>
           </form>
         </div>
-      </aside>
+      </SidebarShell>
 
       <main className="min-w-0 flex-1 p-4 md:p-8">
         {hasAnyAccess ? (
           children
         ) : (
           <div className="card max-w-lg">
-            <h1 className="h1 mb-2">No access yet</h1>
+            <h1 className="h1 mb-2">You&apos;re in, but can&apos;t see anything yet</h1>
             <p className="muted mb-4">
-              You are a member of {workspace.name}, but the owner has not given you a role yet (or your access
-              has ended). Once they assign one, your pages will appear here.
+              You have joined {workspace.name}. The owner still needs to choose what you can see (or your access
+              has ended). As soon as they do, your pages will appear here.
             </p>
             <ActionForm action={leaveWorkspaceAction.bind(null, workspaceId)}>
-              <button className="btn btn-sm" type="submit">Leave this workspace</button>
+              <ConfirmButton
+                className="btn"
+                title={`Leave ${workspace.name}?`}
+                message="You will need a new invite to come back."
+                confirmLabel="Leave"
+              >
+                Leave this workspace
+              </ConfirmButton>
             </ActionForm>
           </div>
         )}

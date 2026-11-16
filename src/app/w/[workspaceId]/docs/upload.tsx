@@ -48,7 +48,7 @@ export function FileUpload({ workspaceId, docId }: { workspaceId: string; docId:
         .from("workspace-files")
         .uploadToSignedUrl(started.upload.path, started.upload.token, file, { contentType: request.mimeType });
       if (error) {
-        setMessage({ text: "The upload failed. Please try again.", error: true });
+        setMessage({ text: "The upload didn't work. Try again.", error: true });
         return;
       }
       const finished = await finishUploadAction(workspaceId, { ...request, fileId: started.upload.fileId });
@@ -66,13 +66,13 @@ export function FileUpload({ workspaceId, docId }: { workspaceId: string; docId:
 
   return (
     <div>
-      <label className="btn btn-sm">
+      <label className="btn">
         {busy ? "Uploading…" : "Upload a file"}
         <input type="file" className="sr-only" disabled={busy} onChange={onChange} />
       </label>
-      <span className="muted ml-2">Up to 25 MB.</span>
+      <span className="muted ml-3">Up to 25 MB each.</span>
       {message && (
-        <p role={message.error ? "alert" : "status"} className={`mt-1 text-sm ${message.error ? "text-danger" : "text-ok"}`}>
+        <p role={message.error ? "alert" : "status"} className={`mt-2 text-[15px] ${message.error ? "text-danger" : "text-ok"}`}>
           {message.text}
         </p>
       )}
