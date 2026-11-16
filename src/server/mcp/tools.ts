@@ -52,6 +52,15 @@ import {
   listTasks,
   updateTask,
 } from "@/server/modules/tasks/service";
+import {
+  LEAVE_KINDS,
+  LEAVE_STATUSES,
+  decideLeave,
+  listEmployees,
+  listLeave,
+  requestLeave,
+  updateEmployee,
+} from "@/server/modules/hr/service";
 import { getOverview } from "@/server/modules/overview/service";
 import { getWorkspace, listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { id, isoDate } from "@/server/validate";
@@ -533,6 +542,84 @@ export const TOOLS: readonly Tool[] = [
     run: async (ctx, args) => {
       await deleteInvoice(ctx, args.workspace_id, args.invoice_id);
       return { deleted: true };
+    },
+  }),
+
+  // --- HR -------------------------------------------------------------------
+  tool({
+    name: "list_people",
+    description:
+      "List the people who work in a workspace. Pay is included only if the member's role includes HR private details; otherwise it is null.",
+    page: "hr",
+    level: "view",
+    input: z.object({ workspace_id }),
+    run: async (ctx, args) => listEmployees(ctx, args.workspace_id),
+  }),
+  tool({
+    name: "list_leave",
+    description: "List time-off requests in a workspace, newest first.",
+    page: "hr",
+    level: "view",
+    input: z.object({ workspace_id, status: z.enum(LEAVE_STATUSES).optional() }),
+    run: async (ctx, args) => listLeave(ctx, args.workspace_id, { status: args.status }),
+  }),
+  tool({
+    name: "request_leave",
+    description: "Ask for time off for a person. The request starts as pending until someone with manage access decides.",
+    page: "hr",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      person_id: id,
+      kind: z.enum(LEAVE_KINDS).optional(),
+      start_date: isoDate,
+      end_date: isoDate,
+      note: z.string().optional(),
+    }),
+    run: async (ctx, args) => ({
+      id: await requestLeave(ctx, args.workspace_id, {
+        employeeId: args.person_id,
+        kind: args.kind,
+        startDate: args.start_date,
+        endDate: args.end_date,
+        note: args.note,
+      }),
+    }),
+  }),
+  tool({
+    name: "update_person",
+    description: "Change a person's job, contact details or start date. Pay cannot be changed through an AI app.",
+    page: "hr",
+    level: "edit",
+    input: z.object({
+      workspace_id,
+      person_id: id,
+      full_name: z.string().optional(),
+      job_title: z.string().optional(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      start_date: isoDate.nullable().optional(),
+    }),
+    run: async (ctx, args) => {
+      await updateEmployee(ctx, args.workspace_id, args.person_id, {
+        ...(args.full_name !== undefined && { fullName: args.full_name }),
+        ...(args.job_title !== undefined && { jobTitle: args.job_title }),
+        ...(args.email !== undefined && { email: args.email }),
+        ...(args.phone !== undefined && { phone: args.phone }),
+        ...(args.start_date !== undefined && { startDate: args.start_date }),
+      });
+      return { ok: true };
+    },
+  }),
+  tool({
+    name: "approve_leave",
+    description: "Approve or decline a time-off request.",
+    page: "hr",
+    level: "manage",
+    input: z.object({ workspace_id, leave_id: id, decision: z.enum(["approved", "declined"]) }),
+    run: async (ctx, args) => {
+      await decideLeave(ctx, args.workspace_id, args.leave_id, { status: args.decision });
+      return { ok: true };
     },
   }),
 ];

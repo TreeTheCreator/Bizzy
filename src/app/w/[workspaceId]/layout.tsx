@@ -17,6 +17,7 @@ const PAGE_ICONS: Partial<Record<Page, IconName>> = {
   docs: "docs",
   crm: "customers",
   finance: "money",
+  hr: "customers",
   settings: "settings",
 };
 

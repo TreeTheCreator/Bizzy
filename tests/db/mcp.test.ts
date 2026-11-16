@@ -128,6 +128,7 @@ const VIEW_TOOLS = ["get_task", "list_projects", "list_tasks", "read_doc", "sear
 const CRM_FINANCE_VIEW_TOOLS = [
   "get_cash_flow", "get_deal", "get_invoice", "list_deals", "list_expenses", "list_invoices", "search_contacts",
 ];
+const HR_VIEW_TOOLS = ["list_leave", "list_people"];
 const BASE_TOOLS = ["get_cross_workspace_overview", "get_workspace_summary", "list_workspaces"];
 
 describe.skipIf(!dbTestsEnabled)("AI connections (MCP)", () => {
@@ -350,7 +351,7 @@ describe.skipIf(!dbTestsEnabled)("AI connections (MCP)", () => {
       expect(await toolNames(ai.ctx)).toContain("delete_doc");
 
       await setMcpPolicy(team.owner, ws, { policy: "read_only" });
-      expect(await toolNames(ai.ctx)).toEqual([...BASE_TOOLS, ...VIEW_TOOLS, ...CRM_FINANCE_VIEW_TOOLS].sort());
+      expect(await toolNames(ai.ctx)).toEqual([...BASE_TOOLS, ...VIEW_TOOLS, ...CRM_FINANCE_VIEW_TOOLS, ...HR_VIEW_TOOLS].sort());
       expect((await call(ai.ctx, "list_tasks", { workspace_id: ws })).isError).toBe(false);
       await expectToolDenied(ai.ctx, "create_task", { workspace_id: ws, title: "x" });
       await expectToolDenied(ai.ctx, "update_doc", { workspace_id: ws, doc_id: doc, title: "x" });

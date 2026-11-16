@@ -33,7 +33,7 @@ export const PAGE_LABELS: Record<Page, string> = {
 };
 
 /** Pages that have a working UI in the current phase. */
-export const LIVE_PAGES: readonly Page[] = ["dashboard", "tasks", "docs", "crm", "finance", "settings"];
+export const LIVE_PAGES: readonly Page[] = ["dashboard", "tasks", "docs", "crm", "finance", "hr", "settings"];
 
 /** Live pages that are not a page inside a workspace: the dashboard is the cross-workspace overview at /overview. */
 export const PAGES_OUTSIDE_WORKSPACE: readonly Page[] = ["dashboard"];
