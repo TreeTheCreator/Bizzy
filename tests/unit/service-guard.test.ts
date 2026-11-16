@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 // "// authz: user-scoped (reason)" comment directly above it.
 
 const MODULES = join(process.cwd(), "src", "server", "modules");
-const PURE_HELPERS = new Set(["nextDueDate"]); // no data access, no ctx
+const PURE_HELPERS = new Set(["nextDueDate", "periodRange"]); // no data access, no ctx
 
 interface Fn {
   file: string;

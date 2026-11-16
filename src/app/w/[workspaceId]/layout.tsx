@@ -39,6 +39,8 @@ export default async function WorkspaceLayout({
   const visiblePages = LIVE_PAGES.filter((page) => access.levels[page] !== "none");
   const mainPages = visiblePages.filter((page) => page !== "settings" && !PAGES_OUTSIDE_WORKSPACE.includes(page));
   const hasAnyAccess = Object.values(access.levels).some((level) => level !== "none");
+  // Reports draw on these pages; the link shows when the role includes at least one.
+  const hasReports = (["tasks", "crm", "finance", "hr"] as const).some((page) => access.levels[page] !== "none");
   const otherWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
 
   return (
@@ -88,6 +90,7 @@ export default async function WorkspaceLayout({
                   {PAGE_LABELS[page]}
                 </NavLink>
               ))}
+              {hasReports && <NavLink href={`${base}/reports`} icon="docs">Reports</NavLink>}
               <NavLink href={`${base}/notifications`} icon="bell">
                 Alerts
                 {unread > 0 && (
