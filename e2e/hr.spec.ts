@@ -73,3 +73,29 @@ test("a member without private details sees the person but no pay", async ({ bro
   await expect(page.getByRole("row", { name: /Ada Baker/ })).toContainText("Approved");
   await expect(page.getByRole("button", { name: /Approve|Decline|Delete/ })).toHaveCount(0);
 });
+
+test("asking for time off alerts the owner, and the answer alerts the member", async () => {
+  const page = member.page;
+  await page.goto(`/w/${workspaceId}/hr?view=leave`);
+  await page.getByRole("button", { name: "Ask for time off" }).first().click();
+  const leave = page.getByRole("dialog");
+  await leave.getByRole("combobox", { name: "Who is it for?" }).selectOption({ label: "Ada Baker" });
+  await leave.getByLabel("First day off").fill("2027-06-07");
+  await leave.getByLabel("Last day off").fill("2027-06-08");
+  await leave.getByRole("button", { name: "Send request" }).click();
+  await expect(page.getByRole("row", { name: /Ada Baker/ }).filter({ hasText: "Waiting for an answer" })).toBeVisible();
+
+  // The owner is told, and the alert leads to the request.
+  await owner.page.goto(`/w/${workspaceId}/notifications`);
+  await owner.page.getByRole("link", { name: "Time off requested for Ada Baker (7 Jun 2027 to 8 Jun 2027)" }).click();
+  await expect(owner.page).toHaveURL(/\/hr\?view=leave/);
+  const request = owner.page.getByRole("row", { name: /Ada Baker/ }).filter({ hasText: "Waiting for an answer" });
+  await request.getByRole("button", { name: "Approve time off for Ada Baker" }).click();
+  await expect(request).toHaveCount(0);
+
+  // The member who asked is told the answer; the owner is not alerted about their own decision.
+  await page.goto(`/w/${workspaceId}/notifications`);
+  await expect(page.getByRole("link", { name: "Time off for Ada Baker (7 Jun 2027 to 8 Jun 2027) was approved" })).toBeVisible();
+  await owner.page.goto(`/w/${workspaceId}/notifications`);
+  await expect(owner.page.getByText(/was approved/)).toHaveCount(0);
+});

@@ -59,12 +59,26 @@ A saved report stores a name, a kind and a period. It never stores numbers. Repo
 
 A template is applied through the ordinary Tasks and Docs services, as the person applying it, and needs Settings manage. It cannot do anything that person could not do by hand. An unknown template name is refused.
 
+### HR alerts (added Nov 16, 2026, plan step 2)
+
+When time off is requested, everyone who can decide it is alerted. When it is decided, the person it is for and whoever asked are alerted. Verified by `tests/db/hr-notifications.test.ts` (7 tests) and a browser test in `e2e/hr.spec.ts`; the full suite is now 530 tests and 12 browser tests, all passing locally.
+
+| Attack | Result | Stopped by |
+| --- | --- | --- |
+| Learn someone's name and dates from an alert after losing HR access | Alerts about other people disappear on the next call | The read policy needs HR view for every `hr.` alert |
+| Learn that someone is on sick leave from an alert | Not possible | Titles never include the kind of leave or the note |
+| Read another member's alerts, or another business's | No rows | Alerts are strictly your own, and only while you are a member |
+| Write a fake alert | Refused | Members have no insert right on alerts; only database triggers write them |
+| Get a link into HR without HR access | The alert about your own time off has no link | The link is added only if the person can open HR |
+
+The person an alert is about is told even with no HR access at all, because it is their own time off. Until plan step 3 (self-service time off) they have no page to open from it.
+
 ## Decisions and deviations from the plan
 
 - **Templates are defined in code**, not in a `workspace_templates` table. They are offered only when a business is created.
 - **Onboarding checklists** (`onboarding_checklists` in the plan) are not a separate feature: the templates add a "New team member" ready-made task list instead.
 - **Time off has no self-service.** Someone with HR edit files a request for a person; there is no "request my own leave" for members without HR access.
-- **Notifications for HR** (for example, when a request is decided) are not built.
+- **Notifications for HR** were added after this review, as plan step 2: see "HR alerts" below.
 - **The REST API does not cover HR, reports or the overview.** AI tools do: `list_people`, `list_leave`, `request_leave`, `update_person`, `approve_leave`, `get_cross_workspace_overview`.
 - **Reports use UTC** month and year boundaries.
 
