@@ -77,9 +77,9 @@ describe.skipIf(!dbTestsEnabled)("HR notifications", () => {
   it("a decision alerts the person and whoever asked, not the one who decided", async () => {
     await decideLeave(team.full, ws, request, { status: "approved" });
 
-    // The person has no HR access: they are told about their own time off, with no link into HR.
+    // The person has no HR access: they are told about their own time off, linked to My time off.
     expect(await hrAlerts(adaUser)).toEqual([
-      expect.objectContaining({ kind: "me.leave_decided", title: "Your time off (1 Feb 2027 to 5 Feb 2027) was approved", link: null }),
+      expect.objectContaining({ kind: "me.leave_decided", title: "Your time off (1 Feb 2027 to 5 Feb 2027) was approved", link: `/w/${ws}/time-off` }),
     ]);
     expect(await hrAlerts(clerk)).toEqual([
       expect.objectContaining({
@@ -93,12 +93,12 @@ describe.skipIf(!dbTestsEnabled)("HR notifications", () => {
     }
   });
 
-  it("someone who asked for their own time off is told once, with a link they can open", async () => {
+  it("someone who asked for their own time off is told once, linked to My time off", async () => {
     const own = await requestLeave(clerk, ws, { employeeId: ben, startDate: "2027-03-10", endDate: "2027-03-11" });
     await decideLeave(team.owner, ws, own, { status: "declined" });
     const mine = (await hrAlerts(clerk)).filter((n) => n.title.includes("10 Mar 2027"));
     expect(mine).toEqual([
-      expect.objectContaining({ kind: "me.leave_decided", title: "Your time off (10 Mar 2027 to 11 Mar 2027) was declined", link: `/w/${ws}/hr?view=leave` }),
+      expect.objectContaining({ kind: "me.leave_decided", title: "Your time off (10 Mar 2027 to 11 Mar 2027) was declined", link: `/w/${ws}/time-off` }),
     ]);
   });
 

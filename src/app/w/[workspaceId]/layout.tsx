@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/modal";
 import { NavLink, SidebarShell } from "@/components/nav";
 import { LIVE_PAGES, PAGES_OUTSIDE_WORKSPACE, PAGE_LABELS, type Page } from "@/server/authz/pages";
 import { getWebCtx } from "@/server/db/web";
+import { getMyPerson } from "@/server/modules/hr/service";
 import { countUnread } from "@/server/modules/notifications/service";
 import { getWorkspace, listMyWorkspaces } from "@/server/modules/workspaces/service";
 import { leaveWorkspaceAction } from "./settings/actions";
@@ -34,11 +35,15 @@ export default async function WorkspaceLayout({
   // Not a member: do not reveal whether the workspace exists.
   if (loaded.denied) notFound();
   const { workspace, access } = loaded.data;
-  const [workspaces, unread] = await Promise.all([listMyWorkspaces(ctx), countUnread(ctx, workspaceId)]);
+  const hasAnyAccess = Object.values(access.levels).some((level) => level !== "none");
+  const [workspaces, unread, myPerson] = await Promise.all([
+    listMyWorkspaces(ctx),
+    countUnread(ctx, workspaceId),
+    hasAnyAccess ? getMyPerson(ctx, workspaceId) : null,
+  ]);
   const base = `/w/${workspaceId}`;
   const visiblePages = LIVE_PAGES.filter((page) => access.levels[page] !== "none");
   const mainPages = visiblePages.filter((page) => page !== "settings" && !PAGES_OUTSIDE_WORKSPACE.includes(page));
-  const hasAnyAccess = Object.values(access.levels).some((level) => level !== "none");
   // Reports draw on these pages; the link shows when the role includes at least one.
   const hasReports = (["tasks", "crm", "finance", "hr"] as const).some((page) => access.levels[page] !== "none");
   const otherWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
@@ -91,6 +96,7 @@ export default async function WorkspaceLayout({
                 </NavLink>
               ))}
               {hasReports && <NavLink href={`${base}/reports`} icon="docs">Reports</NavLink>}
+              {myPerson && <NavLink href={`${base}/time-off`} icon="tasks">My time off</NavLink>}
               <NavLink href={`${base}/notifications`} icon="bell">
                 Alerts
                 {unread > 0 && (

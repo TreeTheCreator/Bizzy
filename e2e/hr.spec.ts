@@ -99,3 +99,38 @@ test("asking for time off alerts the owner, and the answer alerts the member", a
   await owner.page.goto(`/w/${workspaceId}/notifications`);
   await expect(owner.page.getByText(/was approved/)).toHaveCount(0);
 });
+
+test("a linked member asks for their own time off and sees the answer", async () => {
+  // The owner adds the member as a person and links their account.
+  await owner.page.goto(`/w/${workspaceId}/hr`);
+  await owner.page.getByRole("button", { name: "New person" }).click();
+  const dialog = owner.page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Full name" }).fill("Cleo Clerk");
+  await dialog.getByRole("combobox", { name: "Their Bizzy account (optional)" }).selectOption({ label: "Cleo Clerk" });
+  await dialog.getByRole("button", { name: "Add person" }).click();
+  await expect(owner.page.getByRole("row", { name: /Cleo Clerk/ })).toBeVisible();
+
+  const page = member.page;
+  await page.goto(`/w/${workspaceId}`);
+  await page.getByRole("link", { name: "My time off" }).click();
+  await page.getByRole("button", { name: "Ask for time off" }).first().click();
+  const leave = page.getByRole("dialog");
+  await leave.getByRole("combobox", { name: "What kind?" }).selectOption({ label: "Holiday" });
+  await leave.getByLabel("First day off").fill("2027-08-02");
+  await leave.getByLabel("Last day off").fill("2027-08-06");
+  await leave.getByRole("button", { name: "Send request" }).click();
+  const mine = page.getByRole("row", { name: /2 Aug 2027|Aug 2, 2027/ });
+  await expect(mine).toContainText("Waiting for an answer");
+
+  await owner.page.goto(`/w/${workspaceId}/hr?view=leave`);
+  const request = owner.page.getByRole("row", { name: /Cleo Clerk/ }).filter({ hasText: "Waiting for an answer" });
+  await request.getByRole("button", { name: "Approve time off for Cleo Clerk" }).click();
+  await expect(request).toHaveCount(0);
+
+  await page.reload();
+  await expect(mine).toContainText("Approved");
+  await expect(mine.getByRole("button", { name: "Cancel" })).toHaveCount(0);
+  await page.goto(`/w/${workspaceId}/notifications`);
+  await page.getByRole("link", { name: /Your time off .* was approved/ }).click();
+  await expect(page).toHaveURL(/\/time-off$/);
+});

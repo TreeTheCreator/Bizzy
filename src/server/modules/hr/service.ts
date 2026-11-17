@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { authorize } from "@/server/authz/authorize";
+import { authorize, authorizeAnyAccess } from "@/server/authz/authorize";
 import type { Ctx } from "@/server/context";
 import { NotFound, PermissionDenied, unwrap } from "@/server/errors";
 import { id, isoDate, parse } from "@/server/validate";
@@ -256,6 +256,98 @@ export async function deleteLeave(ctx: Ctx, workspaceId: string, leaveId: string
   await authorize(ctx, parse(id, workspaceId), "hr", "manage");
   const rows = unwrap<{ id: string }[]>(
     await ctx.db.from("leave_requests").delete().eq("workspace_id", workspaceId).eq("id", parse(id, leaveId)).select("id"),
+  );
+  if (rows.length === 0) throw new NotFound("Request");
+}
+
+// --- My time off ------------------------------------------------------------
+//
+// For a member whose HR person record is linked to their account. Needs no HR
+// access: the database lets anyone see, ask for and cancel only their own time
+// off (public.my_employee_id).
+
+const myLeaveFields = z
+  .object({
+    kind: z.enum(LEAVE_KINDS).default("holiday"),
+    startDate: isoDate,
+    endDate: isoDate,
+    note: z.string().trim().max(2000).default(""),
+  })
+  .refine((v) => v.endDate >= v.startDate, { message: "the last day can't be before the first day", path: ["endDate"] });
+export type MyLeaveInput = z.input<typeof myLeaveFields>;
+
+export interface MyTimeOff {
+  /** Null when the caller has no linked, active person record here. */
+  person: { id: string; full_name: string } | null;
+  requests: LeaveRequest[];
+}
+
+async function myPerson(ctx: Ctx, workspaceId: string): Promise<MyTimeOff["person"]> {
+  const rows = unwrap<{ id: string; full_name: string }[]>(await ctx.db.rpc("my_employee", { p_workspace: workspaceId }));
+  return rows[0] ?? null;
+}
+
+/** The caller's own person record here (id and name), or null. Used to show the "My time off" link. */
+export async function getMyPerson(ctx: Ctx, workspaceId: string): Promise<MyTimeOff["person"]> {
+  await authorizeAnyAccess(ctx, parse(id, workspaceId));
+  return myPerson(ctx, workspaceId);
+}
+
+/** The caller's own person record and time-off requests, newest first. */
+export async function getMyTimeOff(ctx: Ctx, workspaceId: string): Promise<MyTimeOff> {
+  await authorizeAnyAccess(ctx, parse(id, workspaceId));
+  const person = await myPerson(ctx, workspaceId);
+  if (!person) return { person: null, requests: [] };
+  const rows = unwrap<Omit<LeaveRequest, "employee_name">[]>(
+    await ctx.db
+      .from("leave_requests")
+      .select(LEAVE_COLUMNS)
+      .eq("workspace_id", workspaceId)
+      .eq("employee_id", person.id)
+      .order("start_date", { ascending: false })
+      .limit(500),
+  );
+  return { person, requests: rows.map((r) => ({ ...r, employee_name: person.full_name })) };
+}
+
+/** Ask for time off for yourself. It starts as pending. */
+export async function requestMyLeave(ctx: Ctx, workspaceId: string, input: MyLeaveInput): Promise<string> {
+  await authorizeAnyAccess(ctx, parse(id, workspaceId));
+  const data = parse(myLeaveFields, input);
+  const person = await myPerson(ctx, workspaceId);
+  if (!person) throw new PermissionDenied("You are not listed in HR here, so there is no time off to ask for.");
+  const row = unwrap<{ id: string }>(
+    await ctx.db
+      .from("leave_requests")
+      .insert({
+        workspace_id: workspaceId,
+        employee_id: person.id,
+        kind: data.kind,
+        start_date: data.startDate,
+        end_date: data.endDate,
+        note: data.note,
+        created_by: ctx.userId,
+      })
+      .select("id")
+      .single(),
+  );
+  return row.id;
+}
+
+/** Withdraw one of your own requests while it is still waiting for an answer. */
+export async function cancelMyLeave(ctx: Ctx, workspaceId: string, leaveId: string): Promise<void> {
+  await authorizeAnyAccess(ctx, parse(id, workspaceId));
+  const person = await myPerson(ctx, workspaceId);
+  if (!person) throw new NotFound("Request");
+  const rows = unwrap<{ id: string }[]>(
+    await ctx.db
+      .from("leave_requests")
+      .delete()
+      .eq("workspace_id", workspaceId)
+      .eq("employee_id", person.id)
+      .eq("status", "pending")
+      .eq("id", parse(id, leaveId))
+      .select("id"),
   );
   if (rows.length === 0) throw new NotFound("Request");
 }
