@@ -104,6 +104,15 @@ describe.skipIf(!dbTestsEnabled)("My time off", () => {
     expect((await getMyTimeOff(team.owner, ws)).person!.id).toBe(olivePerson);
   });
 
+  it("someone who can decide is not asked to decide a request filed for them", async () => {
+    await requestLeave(team.owner, ws, { employeeId: franPerson, startDate: "2027-11-01", endDate: "2027-11-01" });
+    const titles = (await listNotifications(team.full, ws)).map((n) => n.title);
+    expect(titles).not.toContain("Time off requested for Fran Full (1 Nov 2027)");
+    // The owner may decide their own, so they are still told about a request filed for them.
+    await requestLeave(team.full, ws, { employeeId: olivePerson, startDate: "2027-11-02", endDate: "2027-11-02" });
+    expect((await listNotifications(team.owner, ws)).map((n) => n.title)).toContain("Time off requested for Olive Owner (2 Nov 2027)");
+  });
+
   it("the answer alerts them, with a link to My time off", async () => {
     await decideLeave(team.full, ws, mine, { status: "declined" });
     const alert = (await listNotifications(sam, ws)).find((n) => n.kind === "me.leave_decided");

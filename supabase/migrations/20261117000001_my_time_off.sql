@@ -100,7 +100,10 @@ begin
     from public.memberships m
     where m.workspace_id = new.workspace_id
       and m.user_id is distinct from v_actor
-      and public.access_level_for(m.user_id, new.workspace_id, 'hr') >= 'manage';
+      and public.access_level_for(m.user_id, new.workspace_id, 'hr') >= 'manage'
+      -- Not the person it is for: they cannot decide it (unless they are the owner).
+      and (m.user_id is distinct from v_person.user_id
+           or m.user_id = (select w.owner_id from public.workspaces w where w.id = new.workspace_id));
     return null;
   end if;
 
