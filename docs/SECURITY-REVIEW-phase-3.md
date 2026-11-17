@@ -59,12 +59,42 @@ A saved report stores a name, a kind and a period. It never stores numbers. Repo
 
 A template is applied through the ordinary Tasks and Docs services, as the person applying it, and needs Settings manage. It cannot do anything that person could not do by hand. An unknown template name is refused.
 
+### HR alerts (added Nov 16, 2026, plan step 2)
+
+When time off is requested, everyone who can decide it is alerted. When it is decided, the person it is for and whoever asked are alerted. Verified by `tests/db/hr-notifications.test.ts` (7 tests) and a browser test in `e2e/hr.spec.ts`; the full suite is now 530 tests and 12 browser tests, all passing locally.
+
+| Attack | Result | Stopped by |
+| --- | --- | --- |
+| Learn someone's name and dates from an alert after losing HR access | Alerts about other people disappear on the next call | The read policy needs HR view for every `hr.` alert |
+| Learn that someone is on sick leave from an alert | Not possible | Titles never include the kind of leave or the note |
+| Read another member's alerts, or another business's | No rows | Alerts are strictly your own, and only while you are a member |
+| Write a fake alert | Refused | Members have no insert right on alerts; only database triggers write them |
+| Get a link into HR without HR access | The alert about your own time off has no link | The link is added only if the person can open HR |
+
+The person an alert is about is told even with no HR access at all, because it is their own time off. The alert links to My time off.
+
+### My time off (added Nov 17, 2026, plan step 3)
+
+Someone with HR edit links a person to a member's account (new "Their Bizzy account" field). That member then gets a "My time off" page, with no HR access needed: they see their own requests, ask for more, and cancel one while it is waiting. Verified by `tests/db/my-time-off.test.ts` (10 tests) and a browser test in `e2e/hr.spec.ts`; the full suite is now 544 tests and 13 browser tests, all passing locally.
+
+| Attack | Result | Stopped by |
+| --- | --- | --- |
+| See colleagues' time off, or the HR list, through My time off | Only your own requests | `leave_select_own` matches only `my_employee_id()`; HR policies unchanged |
+| Read your own full HR record (notes, contact details) | Not possible | `employees` policies unchanged; `my_employee()` returns only id and name |
+| File time off for someone else, straight at the database | Refused | `leave_insert_own` requires your own person record |
+| Approve your own request with HR manage or Full Access | Refused | `leave_before_write` trigger; only the owner may decide their own |
+| Cancel someone else's request, or your own after it was answered | Refused | `leave_delete_own` needs your own record and status pending |
+| Use My time off with no role, after leaving, or after your role is removed | Nothing | `my_employee_id()` needs a current membership with a role and an active person record |
+| Use it through an AI app's token | Nothing | `my_employee_id()` returns null for OAuth client tokens |
+
+The two new functions are in the reviewed list of functions signed-in users may call (`tests/db/isolation.test.ts`). The AI tools and REST API do not offer My time off.
+
 ## Decisions and deviations from the plan
 
 - **Templates are defined in code**, not in a `workspace_templates` table. They are offered only when a business is created.
 - **Onboarding checklists** (`onboarding_checklists` in the plan) are not a separate feature: the templates add a "New team member" ready-made task list instead.
-- **Time off has no self-service.** Someone with HR edit files a request for a person; there is no "request my own leave" for members without HR access.
-- **Notifications for HR** (for example, when a request is decided) are not built.
+- **Self-service time off** was added after this review, as plan step 3: see "My time off" below.
+- **Notifications for HR** were added after this review, as plan step 2: see "HR alerts" below.
 - **The REST API does not cover HR, reports or the overview.** AI tools do: `list_people`, `list_leave`, `request_leave`, `update_person`, `approve_leave`, `get_cross_workspace_overview`.
 - **Reports use UTC** month and year boundaries.
 

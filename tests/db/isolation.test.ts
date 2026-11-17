@@ -104,7 +104,7 @@ describe.skipIf(!dbTestsEnabled)("tenant isolation", () => {
           "webhook_event_page",
           "create_workspace", "has_any_access", "hash_invite_token", "invite_preview", "is_client_role",
           "is_member", "is_oauth_client", "is_owner", "log_event", "log_login", "mcp_cap", "mcp_connect",
-          "mcp_log_call", "mcp_revoke", "mcp_revoke_any", "my_access", "my_overview", "my_role_id",
+          "mcp_log_call", "mcp_revoke", "mcp_revoke_any", "my_access", "my_employee", "my_employee_id", "my_overview", "my_role_id",
           "recently_authenticated", "report_page", "save_role", "storage_workspace", "transfer_ownership",
           "workspace_members", "workspace_people",
         ].sort(),

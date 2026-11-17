@@ -75,7 +75,11 @@ Because only you and selected people use Bizzy for now, consider switching **off
 
 ## How preview deployments work
 
-Every pull request gets its own Vercel URL, all sharing the `bizzy-preview` database. A pull request that adds a migration applies it to that shared database when its preview builds, so avoid having two open pull requests with conflicting migrations. (Supabase's paid plan offers one database per pull request; the code needs no change to use it.)
+Every pull request gets its own Vercel URL. **Only production builds apply migrations** ([scripts/migrate.mjs](../scripts/migrate.mjs)); preview builds skip them.
+
+This is because the current setup uses one Supabase database for both Production and Preview, so a preview of an unmerged pull request must not change it. The cost: a preview of a branch that adds a migration runs its new code against the old schema, so the new feature may error in that preview until the pull request is merged. Merging to `main` triggers the production build, which applies the migrations before building.
+
+If you later create a separate `bizzy-preview` project (the setup above), point Preview's `SUPABASE_DB_URL` at it and allow preview builds to migrate again in `migrate.mjs`. Supabase's paid plan offers one database per pull request.
 
 ## Email limits
 

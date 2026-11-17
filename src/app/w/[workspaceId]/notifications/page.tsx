@@ -30,7 +30,7 @@ export default async function NotificationsPage({ params }: { params: Promise<{ 
         )}
       </PageHeader>
       {notifications.length === 0 ? (
-        <EmptyState icon="bell" title="No alerts" body="You will see a message here when someone gives you a task or mentions you." />
+        <EmptyState icon="bell" title="No alerts" body="You will see a message here when someone gives you a task, comments on one of yours, or decides on time off." />
       ) : (
         <section className="card">
           <ul>

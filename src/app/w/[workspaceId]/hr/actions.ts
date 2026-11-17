@@ -27,6 +27,7 @@ const readEmployee = (formData: FormData) => ({
   phone: str(formData, "phone"),
   startDate: strOrNull(formData, "startDate"),
   status: (str(formData, "status") || "active") as "active" | "left",
+  userId: strOrNull(formData, "userId"),
 });
 
 export async function createEmployeeAction(workspaceId: string, _prev: ActionState, formData: FormData) {

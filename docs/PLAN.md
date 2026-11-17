@@ -199,9 +199,9 @@ Everything below can be built and tested on the local Supabase stack. Every step
 
 **Stage A: close the Phase 3 gaps**
 
-1. **Push the branch and get CI green.** Push `phase-3-e2e-and-overview`, open a pull request, fix whatever the browser tests turn up against the production build.
-2. **HR notifications.** Notification kinds for "time off requested" and "time off decided"; written from the HR service; shown on the notifications page.
-3. **Self-service time off.** Link a person record to a member; a policy letting a member insert and view leave requests for their own person record only; a "My time off" page visible without HR access; test that a member cannot file for someone else or approve their own.
+1. **Push the branch and get CI green.** *Done Nov 16, 2026.* Push `phase-3-e2e-and-overview`, open a pull request, fix whatever the browser tests turn up against the production build.
+2. **HR notifications.** *Done Nov 16, 2026.* Notification kinds for "time off requested" and "time off decided"; written from the HR service; shown on the notifications page.
+3. **Self-service time off.** *Done Nov 17, 2026.* Link a person record to a member; a policy letting a member insert and view leave requests for their own person record only; a "My time off" page visible without HR access; test that a member cannot file for someone else or approve their own.
 4. **Sick leave privacy.** Hide the kind of leave unless the caller has HR private details or it is their own request; apply it in the HR list, the `list_leave` AI tool and the reports.
 5. **Report sums in SQL.** Move each report's totals into a SECURITY INVOKER function; remove the 10,000-row read; check totals match the old results on seeded data.
 6. **REST API for HR, reports and overview.** `/api/v1` routes wrapping the existing services; API key scopes for the new pages; no pay changes through the API.

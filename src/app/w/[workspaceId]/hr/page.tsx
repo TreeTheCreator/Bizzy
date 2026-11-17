@@ -9,6 +9,7 @@ import { atLeast } from "@/server/authz/pages";
 import { authorize } from "@/server/authz/authorize";
 import { getWebCtx } from "@/server/db/web";
 import { type Employee, type LeaveRequest, listEmployees, listLeave } from "@/server/modules/hr/service";
+import { listPeople } from "@/server/modules/members/service";
 import {
   createEmployeeAction,
   decideLeaveAction,
@@ -52,15 +53,21 @@ export default async function HrPage({
 
   const loaded = await tryLoad(async () => {
     const access = await authorize(ctx, workspaceId, "hr", "view");
-    const [people, leave] = await Promise.all([listEmployees(ctx, workspaceId), listLeave(ctx, workspaceId)]);
-    return { access, ...people, leave };
+    const [people, leave, members] = await Promise.all([
+      listEmployees(ctx, workspaceId),
+      listLeave(ctx, workspaceId),
+      listPeople(ctx, workspaceId),
+    ]);
+    return { access, ...people, leave, members };
   });
   if (loaded.denied) return <NoAccess what="HR" />;
-  const { access, employees, canSeePay, leave } = loaded.data;
+  const { access, employees, canSeePay, leave, members } = loaded.data;
   const canEdit = atLeast(access.levels.hr, "edit");
   const canManage = atLeast(access.levels.hr, "manage");
   const base = `/w/${workspaceId}/hr`;
   const active = employees.filter((e) => e.status === "active");
+  // Nobody decides their own time off, except the owner (the database refuses it too).
+  const ownPersonId = access.isOwner ? null : employees.find((e) => e.user_id === ctx.userId)?.id;
 
   const personFields = (e?: Employee) => (
     <div className="space-y-4">
@@ -83,6 +90,18 @@ export default async function HrPage({
       <label className="block">
         <span className="label">First day at work (optional)</span>
         <input className="input" type="date" name="startDate" defaultValue={e?.start_date ?? ""} />
+      </label>
+      <label className="block">
+        <span className="label">Their Bizzy account (optional)</span>
+        <select className="input" name="userId" defaultValue={e?.user_id ?? ""}>
+          <option value="">Not linked</option>
+          {members
+            .filter((m) => m.user_id === e?.user_id || !employees.some((other) => other.user_id === m.user_id))
+            .map((m) => (
+              <option key={m.user_id} value={m.user_id}>{m.display_name}</option>
+            ))}
+        </select>
+        <span className="muted mt-1 block">Linked people can ask for their own time off.</span>
       </label>
       {e && (
         <label className="block">
@@ -287,14 +306,14 @@ export default async function HrPage({
                     {canManage && (
                       <td className="text-right">
                         <div className="flex flex-wrap justify-end gap-2">
-                          {r.status !== "approved" && (
+                          {r.status !== "approved" && r.employee_id !== ownPersonId && (
                             <ActionForm action={decideLeaveAction.bind(null, workspaceId)}>
                               <input type="hidden" name="leaveId" value={r.id} />
                               <input type="hidden" name="status" value="approved" />
                               <button className="btn btn-sm" type="submit" aria-label={`Approve time off for ${r.employee_name}`}>Approve</button>
                             </ActionForm>
                           )}
-                          {r.status !== "declined" && (
+                          {r.status !== "declined" && r.employee_id !== ownPersonId && (
                             <ActionForm action={decideLeaveAction.bind(null, workspaceId)}>
                               <input type="hidden" name="leaveId" value={r.id} />
                               <input type="hidden" name="status" value="declined" />
