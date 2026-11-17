@@ -42,5 +42,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# keep the env template
+
+.vercel
+.env*
+
+# keep the env template (must come after .env*)
 !.env.example
