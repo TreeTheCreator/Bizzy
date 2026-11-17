@@ -19,7 +19,7 @@ if (!dbUrl) {
   process.exit(0);
 }
 
-const result = spawnSync("npx", ["supabase", "db", "push", `--remote=${dbUrl}`, "--include-all"], {
+const result = spawnSync("npx", ["supabase", "db", "push", `--remote=${dbUrl}`, "--include-all", "--yes"], {
   stdio: "inherit",
   shell: process.platform === "win32",
 });
